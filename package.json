@@ -1,0 +1,50 @@
+{
+  "name": "postcss-viewport-fallback",
+  "version": "1.0.0",
+  "description": "PostCSS plugin that adds fallback for dvh/dvw/lvh/svh/dvi/dvb units.",
+  "author": "Maksim Kravtsov",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": "./dist/index.js",
+    "require": "./dist/index.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "release": "npm version patch && npm run build && npm publish",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "peerDependencies": {
+    "postcss": "^8.0.0"
+  },
+  "dependencies": {
+    "postcss-value-parser": "^4.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^17.23.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "postcss": "^8.4.0",
+    "postcss-html": "^1.8.0",
+    "prettier": "^3.7.4",
+    "tsup": "^8.2.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
