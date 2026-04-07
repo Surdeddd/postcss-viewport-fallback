@@ -35,3 +35,5 @@ tmp/
 test/
 *.test.ts
 *.spec.ts
+.remember
+.claude

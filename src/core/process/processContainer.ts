@@ -1,18 +1,13 @@
-import type { AtRule } from 'postcss';
-import type { ViewportFallbackOptions } from '../../plugin/types';
-import { QUICK_UNIT_TEST } from '../regex';
-import { transformValue } from '../transform';
+import type { AtRule, Result } from 'postcss';
+import { processAtRule } from './processAtRule';
+import type { ResolvedConfig } from '../config';
+import type { TransformStats } from '../../plugin/types';
 
-export function processContainer(atRule: AtRule, opts: ViewportFallbackOptions) {
-  const params = atRule.params;
-  if (!params || !QUICK_UNIT_TEST.test(params)) return;
-
-  const fallback = transformValue(params, '@container', opts);
-  if (!fallback || fallback === params) return;
-
-  atRule.cloneBefore({ params: fallback });
-
-  if (opts.debug) {
-    console.log(`[viewport-fallback] @container: ${params} → ${fallback}`);
-  }
+export function processContainer(
+  atRule: AtRule,
+  config: ResolvedConfig,
+  stats: TransformStats,
+  result: Result,
+) {
+  processAtRule(atRule, 'container', config, stats, result);
 }

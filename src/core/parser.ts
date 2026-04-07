@@ -1,21 +1,29 @@
 import valueParser from 'postcss-value-parser';
-import { UNIT_MAP } from './units.js';
-import { VIEWPORT_UNIT_REGEX } from './regex.js';
+import { UNIT_MAP } from './units';
+import { VIEWPORT_UNIT_REGEX } from './regex';
 
-export function parseAndTransform(value: string): string | null {
+export function parseAndTransform(
+  value: string,
+  unitMap?: Record<string, string>,
+  unitRegex?: RegExp,
+): string | null {
+  const map = unitMap ?? UNIT_MAP;
+  const regex = unitRegex ?? VIEWPORT_UNIT_REGEX;
   let modified = false;
 
   const parsed = valueParser(value);
 
-  parsed.walk(node => {
+  parsed.walk((node) => {
     if (node.type !== 'word') return;
 
-    const match = node.value.match(VIEWPORT_UNIT_REGEX);
+    const match = node.value.match(regex);
     if (!match) return;
 
     const [, number, unit] = match;
-    node.value = number + UNIT_MAP[unit as keyof typeof UNIT_MAP];
-    modified = true;
+    if (map[unit]) {
+      node.value = number + map[unit];
+      modified = true;
+    }
   });
 
   return modified ? parsed.toString() : null;
