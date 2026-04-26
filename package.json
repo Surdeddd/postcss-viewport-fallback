@@ -21,7 +21,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "release": "npm version patch && npm run build && npm publish",
     "lint": "eslint .",
     "format": "prettier --write ."

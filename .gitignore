@@ -32,8 +32,5 @@ tmp/
 .eslintcache
 .env
 .env.*.local
-test/
-*.test.ts
-*.spec.ts
 .remember
 .claude
