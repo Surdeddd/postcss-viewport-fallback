@@ -2,6 +2,27 @@
 
 > Starting with 1.5.0 this file is generated automatically by [release-please](https://github.com/googleapis/release-please) from conventional commit messages.
 
+## [1.5.0](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.4.0...v1.5.0) (2026-06-11)
+
+
+### Features
+
+* fastSkip option, browserslist queries, disable/enable comment ranges ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* full CSS Values 4 unit set + case-insensitive matching ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* v1.5.0 — full unit set, fastSkip, comment ranges, browserslist queries ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+
+
+### Bug Fixes
+
+* anchor unit regex — stop mangling idents containing unit substrings ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* browserslist option was dead code — createRequire + browserslist() targets ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* per-run stats isolation via prepare() ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* preserve:false applies to at-rules and dedup-skips ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* reject customUnits mapping cycles at init ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* ship index.d.cts for require consumers (node16 resolution) ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* single-value property filters crashed despite being documented ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+* strict mode throws only where a transform would happen, covers at-rules ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+
 ## 1.0.0 (2025)
 
 ### Features
