@@ -1,7 +1,7 @@
 {
   "name": "postcss-viewport-fallback",
   "version": "1.4.0",
-  "description": "PostCSS plugin that adds fallback for dvh/dvw/lvh/svh/dvi/dvb units.",
+  "description": "PostCSS plugin that adds classic fallbacks for all dynamic/small/large viewport units (dvh, svh, lvh, dvw, dvmin, ...).",
   "author": "Maksim Kravtsov",
   "license": "MIT",
   "type": "module",
@@ -10,21 +10,30 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run --passWithNoTests",
-    "release": "npm version patch && npm run build && npm publish",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check:package": "publint && attw --pack .",
+    "bench": "npm run build && node scripts/bench.mjs"
   },
   "peerDependencies": {
     "postcss": "^8.0.0"
@@ -33,26 +42,28 @@
     "postcss-value-parser": "^4.2.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
     "@eslint/js": "^9.39.1",
-    "eslint": "^9.39.1",
-    "eslint-config-prettier": "^9.1.2",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-n": "^17.23.1",
-    "eslint-plugin-prettier": "^5.5.4",
-    "postcss": "^8.4.0",
-    "postcss-html": "^1.8.0",
-    "prettier": "^3.7.4",
-    "tsup": "^8.2.0",
-    "typescript": "^5.5.0",
-    "typescript-eslint": "^8.48.1",
-    "vitest": "^2.1.0"
+    "@types/node": "^20.19.43",
+    "@vitest/coverage-v8": "^2.1.9",
+    "caniuse-api": "^4.0.0",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "postcss": "^8.5.15",
+    "postcss-html": "^1.8.1",
+    "prettier": "^3.8.4",
+    "publint": "^0.3.21",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=20"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Surdeddd/postcss-viewport-fallback.git"
+    "url": "git+https://github.com/Surdeddd/postcss-viewport-fallback.git"
   },
   "bugs": {
     "url": "https://github.com/Surdeddd/postcss-viewport-fallback/issues"

@@ -20,8 +20,9 @@ export function parseAndTransform(
     if (!match) return;
 
     const [, number, unit] = match;
-    if (map[unit]) {
-      node.value = number + map[unit];
+    const fallbackUnit = map[unit.toLowerCase()];
+    if (fallbackUnit) {
+      node.value = number + fallbackUnit;
       modified = true;
     }
   });

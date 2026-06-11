@@ -8,6 +8,7 @@ export const DEFAULT_OPTIONS = {
   strict: false,
   customUnits: undefined,
   browserslist: false,
+  fastSkip: false,
   onTransform: undefined,
   onComplete: undefined,
 } as const;

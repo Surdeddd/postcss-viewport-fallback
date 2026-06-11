@@ -1,7 +1,0 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`snapshot complex cases > large css snapshot 1`] = `
-".a { height: 100vh; }
-      .b { width: calc(50vw - 10px); }
-      .c { margin: 1vh 2vw; }"
-`;

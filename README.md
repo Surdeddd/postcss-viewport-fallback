@@ -6,13 +6,13 @@
 [![license](https://img.shields.io/npm/l/postcss-viewport-fallback)](https://github.com/Surdeddd/postcss-viewport-fallback/blob/main/LICENSE)
 [![node](https://img.shields.io/node/v/postcss-viewport-fallback)](https://nodejs.org)
 
-A PostCSS plugin that automatically inserts classic viewport unit fallbacks for modern dynamic viewport units:
+A PostCSS plugin that automatically inserts classic viewport unit fallbacks for modern viewport units:
 
-- `dvh`, `dvw`
-- `lvh`, `svh`
-- `dvi`, `dvb`
+- `dvw`, `dvh`, `dvi`, `dvb`, `dvmin`, `dvmax` (dynamic)
+- `svw`, `svh`, `svi`, `svb`, `svmin`, `svmax` (small)
+- `lvw`, `lvh`, `lvi`, `lvb`, `lvmin`, `lvmax` (large)
 
-The plugin ensures consistent layout behavior across older browsers and embedded environments by generating `vh`, `vw`, `vi`, `vb` equivalents before the original declaration.
+The plugin ensures consistent layout behavior across older browsers and embedded environments by generating `vw`, `vh`, `vi`, `vb`, `vmin`, `vmax` equivalents before the original declaration.
 
 ---
 
@@ -43,7 +43,7 @@ Fallback generation inside:
 - `@supports`
 - `@container` (including nested container queries)
 
-#### Example:
+#### At-rule example
 
 ```css
 @media (min-height: 100dvh) { ... }
@@ -52,7 +52,7 @@ Fallback generation inside:
 @media (min-height: 100dvh) { ... }
 ```
 
-## Example:
+## Example
 
 ### Input
 
@@ -87,7 +87,8 @@ viewportFallback({
   debug: false,            // or 'minimal' | 'verbose'
   strict: false,
   customUnits: undefined,  // e.g. { cqh: 'vh', cqw: 'vw' }
-  browserslist: false,     // auto-skip if all targets support dvh
+  browserslist: false,     // true | browserslist query — auto-skip if all targets support dvh
+  fastSkip: false,         // skip files without viewport units via one regex scan
   onTransform(meta) {
     console.log(meta);
   },
@@ -111,6 +112,8 @@ Set to `false` to output only the fallback — useful when targeting only older 
 preserve: false
 ```
 
+Applies to at-rules too: `@media (min-height: 100dvh)` is replaced by its `vh` fallback block.
+
 > **Note:** `replace: true` still works as a deprecated alias for `preserve: false`.
 
 #### includeCustomProps
@@ -123,10 +126,11 @@ Transform custom properties, e.g.:
 
 #### onlyProperties
 
-Apply transformation only to selected properties. Accepts strings and RegExp patterns:
+Apply transformation only to selected properties. Accepts a string, a RegExp, or an array of both:
 
 ```js
 onlyProperties: ['height', /^(min|max)-height$/]
+onlyProperties: 'height'
 ```
 
 #### excludeProperties
@@ -137,17 +141,33 @@ Skip transformation for selected properties. Same format as `onlyProperties`:
 excludeProperties: [/^padding/, 'margin']
 ```
 
+> At-rules participate in property filters under the names `@media`, `@supports`, `@container`. For example, `excludeProperties: ['@media']` skips media query params, and `onlyProperties: ['height']` disables at-rule transformation entirely (the allowlist doesn't include `@media`).
+
 #### browserslist
 
-Auto-skip the entire plugin if all target browsers support dynamic viewport units. Requires `caniuse-api` as an optional dependency:
+Auto-skip the entire plugin if all target browsers (resolved from your browserslist config) support dynamic viewport units. Requires `caniuse-api` as an optional dependency:
 
 ```bash
 npm install caniuse-api --save-dev
 ```
 
 ```js
-browserslist: true
+browserslist: true                  // resolve targets from project browserslist config
+browserslist: 'last 2 versions'     // or pass a query directly
+browserslist: ['chrome >= 120', 'safari >= 17']
 ```
+
+If `caniuse-api` is not installed or no browserslist config is found, the plugin keeps transforming as usual.
+
+#### fastSkip
+
+Skip whole files that contain no viewport units using a single regex scan over the raw source, instead of visiting every declaration (default: `false`):
+
+```js
+fastSkip: true
+```
+
+> **Warning:** do not enable when an earlier plugin in the same PostCSS pipeline *generates* viewport units that are not present in the source file — e.g. Tailwind producing `h-dvh` utilities from `@tailwind utilities`. The scan only sees the original source.
 
 #### debug
 
@@ -163,6 +183,8 @@ Output is emitted via PostCSS `result.warn()`, so it integrates with postcss-rep
 
 Throws an error with source position when dynamic viewport units are found. Useful for CI pipelines to enforce that all viewport units have been manually reviewed.
 
+Strict throws exactly where a transform would otherwise happen — declarations and at-rules that are skipped by `excludeProperties`/`onlyProperties`, custom properties without `includeCustomProps`, and idents that merely contain a unit substring (e.g. `var(--dvh-color)`) do not trigger it.
+
 #### customUnits
 
 Add custom unit-to-fallback mappings beyond the built-in ones:
@@ -171,7 +193,7 @@ Add custom unit-to-fallback mappings beyond the built-in ones:
 customUnits: { cqh: 'vh', cqw: 'vw' }
 ```
 
-Custom units are merged with built-in units. You can also override built-in mappings.
+Custom units are merged with built-in units. You can also override built-in mappings. Chains are allowed (`cqh → svh → vh` produces progressive fallbacks); mapping cycles (e.g. `{ dvh: 'svh', svh: 'dvh' }`) are rejected at plugin init.
 
 #### onTransform(meta)
 
@@ -204,18 +226,34 @@ Disable transformation for a specific declaration by placing a comment before it
 }
 ```
 
+Or disable a whole range with `disable` / `enable` (applies to all following siblings and cascades into nested blocks):
+
+```css
+/* postcss-viewport-fallback: disable */
+.hero { height: 100dvh; }                          /* skipped */
+@media (min-height: 50dvh) { .x { width: 10dvw; } } /* skipped, including contents */
+/* postcss-viewport-fallback: enable */
+.app { height: 100dvh; }                           /* gets a fallback */
+```
+
 ---
 
 ## Supported units
 
-| Modern unit | Fallback |
-| ----------- | -------- |
-| dvh         | vh       |
-| dvw         | vw       |
-| lvh         | vh       |
-| svh         | vh       |
-| dvi         | vi       |
-| dvb         | vb       |
+All small (`sv*`), large (`lv*`), and dynamic (`dv*`) viewport units from [CSS Values 4](https://www.w3.org/TR/css-values-4/#viewport-relative-units):
+
+| Modern units        | Fallback |
+| ------------------- | -------- |
+| dvw, svw, lvw       | vw       |
+| dvh, svh, lvh       | vh       |
+| dvi, svi, lvi       | vi       |
+| dvb, svb, lvb       | vb       |
+| dvmin, svmin, lvmin | vmin     |
+| dvmax, svmax, lvmax | vmax     |
+
+Matching is case-insensitive (`100DVH` → `100vh`), per CSS spec.
+
+> **Honest note on `vi`/`vb` fallbacks:** logical viewport units (`vi`, `vb`) shipped in browsers at roughly the same time as their dynamic variants (Chromium 108, Safari 15.4) — a browser missing `dvi` almost certainly also misses `vi`. The practical value of this plugin is in the `vh`/`vw`/`vmin`/`vmax` fallbacks; `vi`/`vb` mappings are provided for completeness.
 
 ---
 
@@ -289,6 +327,26 @@ export default {
   syntax: postcssHtml,
 };
 ```
+
+---
+
+## Development
+
+```bash
+npm test               # vitest suite
+npm run test:coverage  # suite + v8 coverage report
+npm run typecheck      # tsc --noEmit
+npm run lint           # eslint
+npm run build          # tsup → dist (esm + cjs + d.ts/d.cts)
+npm run check:package  # publint + arethetypeswrong (package exports health)
+npm run bench          # quick perf benchmark on 20k generated rules
+```
+
+CI runs lint, typecheck, tests (Node 20/22/24), build, and package checks on every push/PR. Coverage is reported on the Node 22 job.
+
+### Releases
+
+Versioning and `CHANGELOG.md` are automated with [release-please](https://github.com/googleapis/release-please): commits to `main` follow [Conventional Commits](https://www.conventionalcommits.org) (`fix:`, `feat:`, `chore:`), release-please maintains a release PR, and merging it tags a release and publishes to npm with provenance.
 
 ---
 

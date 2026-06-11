@@ -2,6 +2,7 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import globals from 'globals';
+import prettierConfig from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
@@ -40,5 +41,6 @@ export default tseslint.config(
       '@typescript-eslint/no-var-requires': 'off',
       '@typescript-eslint/ban-ts-comment': 'off',
     },
-  }
+  },
+  prettierConfig
 );

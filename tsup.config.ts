@@ -6,5 +6,6 @@ export default defineConfig({
   dts: {
     entry: 'src/index.ts',
   },
+  shims: true,
   clean: true,
 });

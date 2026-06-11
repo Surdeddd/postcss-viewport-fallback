@@ -1,9 +1,15 @@
-import type { Root, Declaration, AtRule, Helpers } from 'postcss';
+import { createRequire } from 'node:module';
+import type { Declaration, AtRule, Plugin, Result } from 'postcss';
 import { DEFAULT_OPTIONS } from '../core/defaults';
-import { mergeUnitMap } from '../core/units';
+import { assertNoUnitCycles, mergeUnitMap } from '../core/units';
 import { createUnitRegex, createQuickTest } from '../core/regex';
 import type { ResolvedConfig } from '../core/config';
-import type { ViewportFallbackOptions, TransformStats } from './types';
+import type {
+  ViewportFallbackOptions,
+  TransformStats,
+  PropertyFilter,
+  PropertyFilterInput,
+} from './types';
 
 import {
   processContainer,
@@ -12,46 +18,41 @@ import {
   processSupports,
 } from '../core/process';
 
-let browserslistResult: boolean | null = null;
-
-function checkBrowserslistSupport(): boolean {
-  if (browserslistResult !== null) return browserslistResult;
-  browserslistResult = false;
+function checkBrowserslistSupport(query: true | string | string[]): boolean {
   try {
-    const loadModule = new Function('m', 'return require(m)') as (m: string) => unknown;
-    const caniuse = loadModule('caniuse-api') as {
-      isSupported: (feat: string, browsers: string[]) => boolean;
-      getBrowserScope: () => string[];
+    const req = createRequire(import.meta.url);
+    const browserslist = req('browserslist') as (query?: string | string[]) => string[];
+    const caniuse = req('caniuse-api') as {
+      isSupported: (feat: string, browsers: string | string[]) => boolean;
     };
-    browserslistResult = caniuse.isSupported(
-      'viewport-unit-variants',
-      caniuse.getBrowserScope(),
-    );
+    const targets = query === true ? browserslist() : browserslist(query);
+    return caniuse.isSupported('viewport-unit-variants', targets);
   } catch {
-    // caniuse-api not installed — skip
+    return false;
   }
-  return browserslistResult;
 }
 
-export default function viewportFallback(options: ViewportFallbackOptions = {}) {
+function normalizeFilter(filter: PropertyFilterInput | undefined): PropertyFilter | undefined {
+  if (filter === undefined) return undefined;
+  return Array.isArray(filter) ? filter : [filter];
+}
+
+export default function viewportFallback(options: ViewportFallbackOptions = {}): Plugin {
   const opts: ViewportFallbackOptions = { ...DEFAULT_OPTIONS, ...options };
 
-  // Browserslist: auto-skip if all targets support dvh/svh/lvh
-  if (opts.browserslist && checkBrowserslistSupport()) {
+  if (opts.browserslist && checkBrowserslistSupport(opts.browserslist)) {
     return {
       postcssPlugin: 'postcss-viewport-fallback',
-      Once() {
-        // no-op: all targets support dynamic viewport units
+      OnceExit() {
+        opts.onComplete?.({ declarations: 0, atRules: 0, skipped: 0, timeMs: 0 });
       },
     };
   }
 
-  // Resolve unit map and regex once at init
   const unitMap = mergeUnitMap(opts.customUnits);
+  assertNoUnitCycles(unitMap);
   const unitKeys = Object.keys(unitMap);
 
-  // Resolve preserve: `replace` is deprecated alias for `preserve: false`
-  // User-provided `preserve` takes priority; fallback to inverse of `replace`
   const shouldPreserve = options.preserve !== undefined
     ? options.preserve
     : options.replace !== undefined
@@ -60,51 +61,63 @@ export default function viewportFallback(options: ViewportFallbackOptions = {}) 
 
   const config: ResolvedConfig = {
     ...opts,
+    excludeProperties: normalizeFilter(opts.excludeProperties),
+    onlyProperties: normalizeFilter(opts.onlyProperties),
     unitMap,
     unitRegex: createUnitRegex(unitKeys),
     quickTest: createQuickTest(unitKeys),
     shouldPreserve,
   };
 
-  let stats: TransformStats;
-  let startTime: number;
-
   return {
     postcssPlugin: 'postcss-viewport-fallback',
 
-    Once() {
-      startTime = performance.now();
-      stats = { declarations: 0, atRules: 0, skipped: 0, timeMs: 0 };
-    },
-
-    Declaration(decl: Declaration, { result }: Helpers) {
-      processDeclaration(decl, config, stats, result);
-    },
-
-    AtRule: {
-      media(atRule: AtRule, { result }: Helpers) {
-        processMedia(atRule, config, stats, result);
-      },
-      supports(atRule: AtRule, { result }: Helpers) {
-        processSupports(atRule, config, stats, result);
-      },
-      container(atRule: AtRule, { result }: Helpers) {
-        processContainer(atRule, config, stats, result);
-      },
-    },
-
-    OnceExit(_root: Root, { result }: Helpers) {
-      stats.timeMs = Math.round((performance.now() - startTime) * 100) / 100;
-
-      if (config.debug) {
-        const summary =
-          `[viewport-fallback] ${stats.declarations} declarations, ${stats.atRules} at-rules transformed` +
-          (stats.skipped ? `, ${stats.skipped} skipped (dedup)` : '') +
-          ` (${stats.timeMs}ms)`;
-        result.warn(summary);
+    prepare(result: Result) {
+      if (config.fastSkip) {
+        const css = result.root?.source?.input?.css;
+        if (typeof css === 'string' && !config.quickTest.test(css)) {
+          return {
+            OnceExit() {
+              config.onComplete?.({ declarations: 0, atRules: 0, skipped: 0, timeMs: 0 });
+            },
+          };
+        }
       }
 
-      config.onComplete?.(stats);
+      const startTime = performance.now();
+      const stats: TransformStats = { declarations: 0, atRules: 0, skipped: 0, timeMs: 0 };
+
+      return {
+        Declaration(decl: Declaration) {
+          processDeclaration(decl, config, stats, result);
+        },
+
+        AtRule: {
+          media(atRule: AtRule) {
+            processMedia(atRule, config, stats, result);
+          },
+          supports(atRule: AtRule) {
+            processSupports(atRule, config, stats, result);
+          },
+          container(atRule: AtRule) {
+            processContainer(atRule, config, stats, result);
+          },
+        },
+
+        OnceExit() {
+          stats.timeMs = Math.round((performance.now() - startTime) * 100) / 100;
+
+          if (config.debug) {
+            const summary =
+              `[viewport-fallback] ${stats.declarations} declarations, ${stats.atRules} at-rules transformed` +
+              (stats.skipped ? `, ${stats.skipped} skipped (dedup)` : '') +
+              ` (${stats.timeMs}ms)`;
+            result.warn(summary);
+          }
+
+          config.onComplete?.(stats);
+        },
+      };
     },
   };
 }

@@ -1,14 +1,18 @@
-export const VIEWPORT_UNIT_REGEX = /(-?\d*\.?\d+)(dvh|dvw|lvh|svh|dvi|dvb)\b/;
-export const QUICK_UNIT_TEST = /(dvh|dvw|lvh|svh|dvi|dvb)/;
+import { UNIT_MAP } from './units';
+
+const NUMBER_PATTERN = '[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?';
 
 export function createUnitRegex(units: string[]): RegExp {
   const sorted = [...units].sort((a, b) => b.length - a.length);
   const alternation = sorted.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  return new RegExp(`(-?\\d*\\.?\\d+)(${alternation})\\b`);
+  return new RegExp(`^(${NUMBER_PATTERN})(${alternation})$`, 'i');
 }
 
 export function createQuickTest(units: string[]): RegExp {
   const sorted = [...units].sort((a, b) => b.length - a.length);
   const alternation = sorted.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  return new RegExp(`(${alternation})`);
+  return new RegExp(`(${alternation})`, 'i');
 }
+
+export const VIEWPORT_UNIT_REGEX = createUnitRegex(Object.keys(UNIT_MAP));
+export const QUICK_UNIT_TEST = createQuickTest(Object.keys(UNIT_MAP));

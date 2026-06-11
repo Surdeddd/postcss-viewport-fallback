@@ -34,3 +34,4 @@ tmp/
 .env.*.local
 .remember
 .claude
+memory-bank/
