@@ -1,6 +1,6 @@
 # Changelog
 
-> Starting with 1.5.0 this file is generated automatically by [release-please](https://github.com/googleapis/release-please) from conventional commit messages.
+> Starting with 1.5.0 this file is generated automatically by [semantic-release](https://github.com/semantic-release/semantic-release) from conventional commit messages.
 
 ## 1.0.0 (2025)
 

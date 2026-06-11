@@ -346,7 +346,7 @@ CI runs lint, typecheck, tests (Node 20/22/24), build, and package checks on eve
 
 ### Releases
 
-Versioning and `CHANGELOG.md` are automated with [release-please](https://github.com/googleapis/release-please): commits to `main` follow [Conventional Commits](https://www.conventionalcommits.org) (`fix:`, `feat:`, `chore:`), release-please maintains a release PR, and merging it tags a release and publishes to npm with provenance.
+Fully automated with [semantic-release](https://github.com/semantic-release/semantic-release): every push to `main` with [Conventional Commits](https://www.conventionalcommits.org) (`fix:` → patch, `feat:` → minor, `BREAKING CHANGE` → major) runs CI and, if a release is due, bumps the version, updates `CHANGELOG.md`, tags a GitHub release, and publishes to npm with provenance — no manual steps.
 
 ---
 
