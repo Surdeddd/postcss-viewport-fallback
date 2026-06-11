@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.4.0...v1.5.0) (2026-06-11)
+
+
+### Features
+
+* v1.5.0 — full unit set, fastSkip, comment ranges, browserslist queries ([a2b14cc](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a2b14cc54e6a15c8aaef87f777f8ba5d2771562a))
+
 # Changelog
 
 > Starting with 1.5.0 this file is generated automatically by [semantic-release](https://github.com/semantic-release/semantic-release) from conventional commit messages.
