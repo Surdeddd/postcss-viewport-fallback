@@ -1,9 +1,11 @@
 import { createRequire } from 'node:module';
-import type { Declaration, AtRule, Plugin, Result } from 'postcss';
+import type { Declaration, AtRule, Plugin, Result, Root, Document } from 'postcss';
 import { DEFAULT_OPTIONS } from '../core/defaults';
 import { assertNoUnitCycles, mergeUnitMap } from '../core/units';
 import { createUnitRegex, createQuickTest } from '../core/regex';
+import { injectViewportVars } from '../core/injectVars';
 import type { ResolvedConfig } from '../core/config';
+import type { RunContext } from '../core/context';
 import type {
   ViewportFallbackOptions,
   TransformStats,
@@ -11,12 +13,7 @@ import type {
   PropertyFilterInput,
 } from './types';
 
-import {
-  processContainer,
-  processDeclaration,
-  processMedia,
-  processSupports,
-} from '../core/process';
+import { processAtRule, processDeclaration } from '../core/process';
 
 function checkBrowserslistSupport(query: true | string | string[]): boolean {
   try {
@@ -59,8 +56,11 @@ export default function viewportFallback(options: ViewportFallbackOptions = {}):
       ? !options.replace
       : true;
 
+  const strategy = opts.strategy ?? 'duplicate';
+
   const config: ResolvedConfig = {
     ...opts,
+    strategy,
     excludeProperties: normalizeFilter(opts.excludeProperties),
     onlyProperties: normalizeFilter(opts.onlyProperties),
     unitMap,
@@ -86,25 +86,42 @@ export default function viewportFallback(options: ViewportFallbackOptions = {}):
 
       const startTime = performance.now();
       const stats: TransformStats = { declarations: 0, atRules: 0, skipped: 0, timeMs: 0 };
+      const usedUnits = new Map<string, string>();
+      const ctx: RunContext = {
+        stats,
+        usedUnits,
+        generated: new WeakSet(),
+        transformCtx: {
+          strategy,
+          onUnitUsed:
+            strategy === 'css-var'
+              ? (unit, fallbackUnit) => usedUnits.set(unit, fallbackUnit)
+              : undefined,
+        },
+      };
 
       return {
         Declaration(decl: Declaration) {
-          processDeclaration(decl, config, stats, result);
+          processDeclaration(decl, config, ctx, result);
         },
 
         AtRule: {
           media(atRule: AtRule) {
-            processMedia(atRule, config, stats, result);
+            processAtRule(atRule, 'media', config, ctx, result);
           },
           supports(atRule: AtRule) {
-            processSupports(atRule, config, stats, result);
+            processAtRule(atRule, 'supports', config, ctx, result);
           },
           container(atRule: AtRule) {
-            processContainer(atRule, config, stats, result);
+            processAtRule(atRule, 'container', config, ctx, result);
           },
         },
 
-        OnceExit() {
+        OnceExit(root: Root | Document) {
+          if (strategy === 'css-var' && usedUnits.size > 0) {
+            injectViewportVars(root, usedUnits, ctx.generated);
+          }
+
           stats.timeMs = Math.round((performance.now() - startTime) * 100) / 100;
 
           if (config.debug) {

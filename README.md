@@ -6,13 +6,18 @@
 [![license](https://img.shields.io/npm/l/postcss-viewport-fallback)](https://github.com/Surdeddd/postcss-viewport-fallback/blob/main/LICENSE)
 [![node](https://img.shields.io/node/v/postcss-viewport-fallback)](https://nodejs.org)
 
-A PostCSS plugin that automatically inserts classic viewport unit fallbacks for modern viewport units:
+The universal fallback layer for modern CSS viewport units — all 18 of them:
 
 - `dvw`, `dvh`, `dvi`, `dvb`, `dvmin`, `dvmax` (dynamic)
 - `svw`, `svh`, `svi`, `svb`, `svmin`, `svmax` (small)
 - `lvw`, `lvh`, `lvi`, `lvb`, `lvmin`, `lvmax` (large)
 
-The plugin ensures consistent layout behavior across older browsers and embedded environments by generating `vw`, `vh`, `vi`, `vb`, `vmin`, `vmax` equivalents before the original declaration.
+Two strategies, one plugin:
+
+- **`duplicate`** (default, zero-runtime) — inserts a classic `vh`/`vw`/... twin before the original declaration; old browsers use the twin, modern browsers use the real unit
+- **`css-var`** (pixel-perfect) — rewrites units to `calc(var(--pvf-dvh, 1vh) * N)` with an auto-injected `@supports` seed, optionally paired with a ~1 KB runtime that gives legacy browsers *actually dynamic* values
+
+Works in `calc()`, `@media`/`@supports`/`@container` params, nested CSS, Tailwind output, Vue/Svelte SFCs.
 
 ---
 
@@ -20,20 +25,13 @@ The plugin ensures consistent layout behavior across older browsers and embedded
 
 ### Core Transformation
 
-- Inserts fallback **before** the original value  
-  (e.g., `height: 100vh; height: 100dvh;`)
-- Works inside:
-  - `calc()`
-  - `min()`, `max()`, `clamp()`
-  - Nested functions of any depth
-  - `var(--x, 100dvh)`
-- Supports decimals and negative values
-- Safe parsing with `postcss-value-parser`
-- Fully configurable:
-  - `replace` mode (replace instead of duplicate)
-  - Property allowlist (`onlyProperties`)
-  - Property denylist (`excludeProperties`)
-  - Custom props transformation
+- All **18** viewport units — dynamic, small, and large × `w/h/i/b/min/max`
+- Two [strategies](#strategy): zero-runtime `duplicate` twins, or pixel-perfect `css-var` + runtime
+- Works inside `calc()`, `min()`, `max()`, `clamp()`, and nested functions of any depth
+- Decimals, negative and signed values, scientific notation, case-insensitive units
+- Safe parsing with `postcss-value-parser` — never touches strings, `url()`, or idents
+- Fully configurable: `preserve`, `onlyProperties`, `excludeProperties`, `customUnits`, `includeCustomProps`
+- Performance: `browserslist` auto-skip, `fastSkip` per-file scan, dedup, concurrent-safe stats
 
 ### At-Rule Support
 
@@ -76,10 +74,26 @@ Fallback generation inside:
 
 ---
 
+## Do you still need this in 2026?
+
+Dynamic viewport units are [Baseline Widely Available](https://caniuse.com/viewport-unit-variants) (~93% global support: Chrome 108+, Safari 15.4+, Firefox 101+). For a typical US/EU consumer app the fallback is close to optional.
+
+You **do** still need it if your `browserslist` includes any of:
+
+- **Emerging-market browsers** — Opera Mini (no support, ever), UC Browser, QQ, KaiOS
+- **Smart-TV / digital-signage** — Tizen & webOS pin Chromium per model year; 2016–2022 TVs never reach Chromium 108
+- **Embedded WebViews / kiosks / car head units** stuck on pre-108 Chromium
+- **Long-tail / public-sector device matrices** that keep old iOS & Android in scope
+
+The honest pitch: *if you don't need it, `browserslist: true` makes the plugin cost exactly zero. If you do, it's the most complete option available.* See the [comparison](#comparison) below.
+
+---
+
 ## Options
 
 ```js
 viewportFallback({
+  strategy: 'duplicate',   // or 'css-var' (pixel-perfect, pairs with the runtime)
   preserve: true,          // false removes original dvh, keeps only vh fallback
   includeCustomProps: false,
   onlyProperties: undefined,   // string | RegExp | Array<string | RegExp>
@@ -99,6 +113,63 @@ viewportFallback({
 ```
 
 ### Option Details
+
+#### strategy
+
+How declaration fallbacks are produced (default: `'duplicate'`).
+
+**`'duplicate'`** — the classic, zero-runtime approach. Inserts a static twin declaration before the original:
+
+```css
+/* height: 100dvh  →  */
+height: 100vh;
+height: 100dvh;
+```
+
+Old browsers keep the last value they understand (`100vh`); modern browsers use `100dvh`. Nothing to ship, works everywhere. Best default for most projects.
+
+**`'css-var'`** — pixel-perfect fallback for legacy browsers. Rewrites each unit to a `calc()` over a CSS variable and injects a `:root` seed that upgrades to the real unit via `@supports`:
+
+```css
+/* input */
+.sheet { height: 100dvh; }
+
+/* output */
+:root { --pvf-dvh: 1vh }
+@supports (height: 1dvh) { :root { --pvf-dvh: 1dvh } }
+.sheet { height: calc(var(--pvf-dvh, 1vh) * 100); height: 100dvh; }
+```
+
+On its own this behaves like `duplicate` (falls back to `1vh`). Its power comes from pairing it with the **runtime** (below), which sets `--pvf-dvh` from the *actual* viewport in browsers that lack `dvh` — so `100dvh` resolves to true pixel height, not the static `vh` approximation that ignores mobile browser chrome.
+
+At-rule params (`@media (min-height: 100dvh)`) always use the `duplicate` strategy, because `var()`/`calc()` are invalid in feature-query context.
+
+#### The runtime (for `strategy: 'css-var'`)
+
+A dependency-free ~1 KB module. Import it once at your app entry:
+
+```js
+import { applyViewportVars } from 'postcss-viewport-fallback/runtime';
+
+applyViewportVars(); // no-op in browsers that support dvh
+```
+
+In browsers **with** native `dv*` support it detects `CSS.supports('height','1dvh')` and does nothing (the `@supports` seed already handles them). In browsers **without** it, it measures `visualViewport` (falling back to `innerWidth/Height`), sets every `--pvf-*` variable to 1% of the live dimension, tracks small/large extremes across resizes, and honors vertical writing modes for `vi`/`vb`. Returns `{ update, destroy }` for manual control and SPA teardown. SSR-safe (no-op without `window`).
+
+Framework entry points:
+
+```js
+// Vite / plain
+import { applyViewportVars } from 'postcss-viewport-fallback/runtime';
+applyViewportVars();
+
+// Next.js — app/layout.tsx (client component) or a <Script> tag
+'use client';
+import { applyViewportVars } from 'postcss-viewport-fallback/runtime';
+applyViewportVars();
+```
+
+> If your target browsers all support `dvh` (or you're happy with the static `vh` approximation), stick with the default `duplicate` strategy and skip the runtime entirely.
 
 #### preserve
 
@@ -257,6 +328,36 @@ Matching is case-insensitive (`100DVH` → `100vh`), per CSS spec.
 
 ---
 
+## Comparison
+
+| | **postcss-viewport-fallback** | postcss-100vh-fix | postcss-viewport-unit-fallback | LightningCSS | postcss-preset-env |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| All 18 `sv*`/`lv*`/`dv*` units | ✅ | ❌ (100vh only) | ⚠️ height units only | ❌ | ❌ |
+| `dvw`/width & logical units | ✅ | ❌ | ❌ | ❌ | ⚠️ `vi`/`vb` only |
+| Inside `calc()`/`min()`/`clamp()` | ✅ | ❌ | ❌ | — | — |
+| `@media`/`@supports`/`@container` | ✅ | ❌ | ❌ | — | — |
+| Preserves `!important` | ✅ | ✅ | ❌ ([bug](https://github.com/gooodev/postcss-viewport-unit-fallback/issues/1)) | — | — |
+| Pixel-perfect runtime option | ✅ (`css-var`) | ❌ | ❌ | ❌ | ❌ |
+| `browserslist` auto-skip | ✅ | ❌ | ❌ | ✅ (targets) | ✅ (stage) |
+| Actively maintained | ✅ | ⚠️ | ❌ (2023) | ✅ | ✅ |
+
+- **LightningCSS** does not lower viewport units and [won't](https://github.com/parcel-bundler/lightningcss/issues/534) — the maintainer's position is that `dvw → vw` isn't a correct static lowering and a proper polyfill needs JavaScript (which is exactly what `strategy: 'css-var'` + the runtime provides).
+- **Autoprefixer** only adds vendor prefixes; units are not prefixable, so it never touches them.
+- **postcss-100vh-fix** solves the older iOS `-webkit-fill-available` problem (height-only, breaks in `calc()`); it's orthogonal, not a `dvh` fallback.
+
+---
+
+## Gotchas worth knowing
+
+Being *the* viewport-units tool means being honest about their sharp edges — a fallback plugin can't fix these, but you should know them:
+
+- **`dvh` doesn't react to the on-screen keyboard.** By default the dynamic viewport ignores the virtual keyboard. Opt in with `<meta name="viewport" content="interactive-widget=resizes-content">` (Chromium-only today).
+- **`dvh` can jank.** Some browsers debounce dynamic viewport updates rather than tracking at 60fps. For sticky/animated elements, `svh` (smallest viewport) is often the calmer choice than `dvh`.
+- **`svh` vs `dvh`:** `svh` assumes browser chrome is *visible* (safe, never clipped); `dvh` follows the live viewport (uses all space, but shifts). Pick `svh` for guaranteed-visible content, `dvh` for full-bleed.
+- **Safari 15.6 (macOS)** has a known bug where `dvh` renders larger than expected ([WebKit #242758](https://bugs.webkit.org/show_bug.cgi?id=242758)).
+
+---
+
 ## Installation
 
 ```bash
@@ -281,18 +382,29 @@ export default {
 
 ### Tailwind CSS
 
-The plugin works with Tailwind out of the box. Add it to your PostCSS config alongside Tailwind:
+Tailwind has [declined](https://github.com/tailwindlabs/tailwindcss/discussions/12752) to emit `vh` fallbacks for its `dvh` utilities — this plugin is the answer. **Order matters:** list `viewportFallback` *after* Tailwind so it transforms the generated `h-dvh` / `min-h-dvh` / `max-h-dvh` output:
 
 ```js
+// postcss.config.js — Tailwind v3
 export default {
-  plugins: [
-    tailwindcss(),
-    viewportFallback(),
-  ],
+  plugins: {
+    tailwindcss: {},
+    'postcss-viewport-fallback': {},
+  },
 };
 ```
 
-Tailwind's `h-dvh`, `min-h-dvh`, `max-h-dvh` utilities will automatically get `vh` fallbacks.
+```js
+// Tailwind v4 (@tailwindcss/postcss)
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {},
+    'postcss-viewport-fallback': {},
+  },
+};
+```
+
+Because Tailwind generates utilities *during* the build (they aren't in your source), leave `fastSkip` off for the Tailwind entry — the raw-source scan wouldn't see them.
 
 ### Vue / Nuxt
 

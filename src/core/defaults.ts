@@ -6,6 +6,7 @@ export const DEFAULT_OPTIONS = {
   excludeProperties: undefined,
   debug: false,
   strict: false,
+  strategy: 'duplicate',
   customUnits: undefined,
   browserslist: false,
   fastSkip: false,

@@ -3,13 +3,15 @@ import { transformValue } from '../transform';
 import { isVerbose } from '../debug';
 import { hasSiblingDuplicate } from '../dedup';
 import { isDisabledByComment } from '../controlComments';
+import { CSS_VAR_PREFIX } from '../constants';
+import { unproxy } from '../proxy';
 import type { ResolvedConfig } from '../config';
-import type { TransformStats } from '../../plugin/types';
+import type { RunContext } from '../context';
 
 export function processDeclaration(
   decl: Declaration,
   config: ResolvedConfig,
-  stats: TransformStats,
+  ctx: RunContext,
   result: Result,
 ) {
   const original = decl.value;
@@ -21,11 +23,15 @@ export function processDeclaration(
 
   if (!config.quickTest.test(original)) return;
 
+  if (prop.startsWith(CSS_VAR_PREFIX)) return;
+
+  if (ctx.generated.has(unproxy(decl))) return;
+
   if (isDisabledByComment(decl)) return;
 
   if (prop.startsWith('--') && !config.includeCustomProps) return;
 
-  const fallback = transformValue(original, prop, config);
+  const fallback = transformValue(original, prop, config, ctx.transformCtx);
   if (!fallback || fallback === original) return;
 
   if (config.strict) {
@@ -45,7 +51,7 @@ export function processDeclaration(
       node.type === 'decl' && node.prop === prop && node.value === fallback,
     );
     if (isDup) {
-      stats.skipped++;
+      ctx.stats.skipped++;
       if (!config.shouldPreserve) decl.remove();
       return;
     }
@@ -61,7 +67,7 @@ export function processDeclaration(
   });
 
   decl.cloneBefore({ value: fallback });
-  stats.declarations++;
+  ctx.stats.declarations++;
 
   if (!config.shouldPreserve) decl.remove();
 }
