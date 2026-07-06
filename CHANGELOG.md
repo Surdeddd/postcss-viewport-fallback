@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.5.0...v1.6.0) (2026-07-06)
+
+
+### Features
+
+* pixel-perfect css-var strategy + browser runtime, toolchain majors ([8712db3](https://github.com/Surdeddd/postcss-viewport-fallback/commit/8712db3b59e857cd2cd793aea89960d66016d00e))
+
 # [1.5.0](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.4.0...v1.5.0) (2026-06-11)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "postcss-viewport-fallback",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "PostCSS plugin that adds classic fallbacks for all dynamic/small/large viewport units (dvh, svh, lvh, dvw, dvmin, ...).",
   "author": "Maksim Kravtsov",
   "license": "MIT",
