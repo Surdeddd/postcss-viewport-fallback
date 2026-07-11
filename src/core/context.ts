@@ -5,7 +5,7 @@ import type { TransformContext } from './transform';
 /** Per-process() run state — never shared across concurrent runs. */
 export interface RunContext {
   stats: TransformStats;
-  usedUnits: Map<string, string>;
+  usedUnits: Set<string>;
   generated: WeakSet<Node>;
   transformCtx: TransformContext;
 }

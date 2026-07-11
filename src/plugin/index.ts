@@ -16,22 +16,36 @@ import type {
 import { processAtRule, processDeclaration } from '../core/process';
 
 function checkBrowserslistSupport(query: true | string | string[]): boolean {
+  let browserslist: (query?: string | string[]) => string[];
+  let caniuse: { isSupported: (feat: string, browsers: string | string[]) => boolean };
   try {
     const req = createRequire(import.meta.url);
-    const browserslist = req('browserslist') as (query?: string | string[]) => string[];
-    const caniuse = req('caniuse-api') as {
-      isSupported: (feat: string, browsers: string | string[]) => boolean;
-    };
+    browserslist = req('browserslist') as typeof browserslist;
+    caniuse = req('caniuse-api') as typeof caniuse;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') return false;
+    throw error;
+  }
+  try {
     const targets = query === true ? browserslist() : browserslist(query);
     return caniuse.isSupported('viewport-unit-variants', targets);
-  } catch {
-    return false;
+  } catch (error) {
+    throw new Error(
+      `[postcss-viewport-fallback] invalid browserslist configuration: ${(error as Error).message}`,
+    );
   }
+}
+
+function sanitizePattern(pattern: string | RegExp): string | RegExp {
+  if (pattern instanceof RegExp && /[gy]/.test(pattern.flags)) {
+    return new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ''));
+  }
+  return pattern;
 }
 
 function normalizeFilter(filter: PropertyFilterInput | undefined): PropertyFilter | undefined {
   if (filter === undefined) return undefined;
-  return Array.isArray(filter) ? filter : [filter];
+  return (Array.isArray(filter) ? filter : [filter]).map(sanitizePattern);
 }
 
 export default function viewportFallback(options: ViewportFallbackOptions = {}): Plugin {
@@ -86,7 +100,7 @@ export default function viewportFallback(options: ViewportFallbackOptions = {}):
 
       const startTime = performance.now();
       const stats: TransformStats = { declarations: 0, atRules: 0, skipped: 0, timeMs: 0 };
-      const usedUnits = new Map<string, string>();
+      const usedUnits = new Set<string>();
       const ctx: RunContext = {
         stats,
         usedUnits,
@@ -94,9 +108,7 @@ export default function viewportFallback(options: ViewportFallbackOptions = {}):
         transformCtx: {
           strategy,
           onUnitUsed:
-            strategy === 'css-var'
-              ? (unit, fallbackUnit) => usedUnits.set(unit, fallbackUnit)
-              : undefined,
+            strategy === 'css-var' ? (unit) => usedUnits.add(unit) : undefined,
         },
       };
 
@@ -119,7 +131,8 @@ export default function viewportFallback(options: ViewportFallbackOptions = {}):
 
         OnceExit(root: Root | Document) {
           if (strategy === 'css-var' && usedUnits.size > 0) {
-            injectViewportVars(root, usedUnits, ctx.generated);
+            injectViewportVars(root, usedUnits, unitMap, ctx.generated);
+            usedUnits.clear();
           }
 
           stats.timeMs = Math.round((performance.now() - startTime) * 100) / 100;

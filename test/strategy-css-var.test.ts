@@ -91,6 +91,57 @@ describe('strategy: css-var', () => {
     expect(out).toContain('@supports (height: 1cqh) { :root { --pvf-cqh: 1cqh } }');
   });
 
+  describe('customUnits chains resolve transitively', () => {
+    it('2-step chain: var fallback uses the terminal unit, not the intermediate', async () => {
+      const out = await run(`.a { height: 100cqh; }`, { customUnits: { cqh: 'svh' } });
+      expect(out).toContain('height: calc(var(--pvf-cqh, 1vh) * 100)');
+      expect(out).not.toContain('1svh) * 100');
+      expect(out).toContain(':root { --pvf-cqh: 1vh }');
+      expect(out).toContain('@supports (height: 1svh) { :root { --pvf-cqh: 1svh } }');
+      expect(out).toContain('@supports (height: 1cqh) { :root { --pvf-cqh: 1cqh } }');
+    });
+
+    it('2-step chain produces exactly one fallback clone, no nested calc garbage', async () => {
+      const out = await run(`.a { height: 100cqh; }`, { customUnits: { cqh: 'svh' } });
+      const rule = out.slice(out.indexOf('.a'));
+      const heightDecls = rule.match(/height:/g) ?? [];
+      expect(heightDecls.length).toBe(2);
+      expect(out).not.toContain('calc(var(--pvf-cqh, calc(');
+    });
+
+    it('3-step chain: cqmax -> cqh -> svh -> vh', async () => {
+      const out = await run(`.a { height: 50cqmax; }`, {
+        customUnits: { cqmax: 'cqh', cqh: 'svh' },
+      });
+      expect(out).toContain('height: calc(var(--pvf-cqmax, 1vh) * 50)');
+      expect(out).toContain(':root { --pvf-cqmax: 1vh }');
+      expect(out).toContain('@supports (height: 1svh) { :root { --pvf-cqmax: 1svh } }');
+      expect(out).toContain('@supports (height: 1cqh) { :root { --pvf-cqmax: 1cqh } }');
+      expect(out).toContain('@supports (height: 1cqmax) { :root { --pvf-cqmax: 1cqmax } }');
+    });
+
+    it('chain + preserve: false keeps only the calc version', async () => {
+      const out = await run(`.a { height: 100cqh; }`, {
+        customUnits: { cqh: 'svh' },
+        preserve: false,
+      });
+      expect(out).toContain('calc(var(--pvf-cqh, 1vh) * 100)');
+      expect(out).not.toContain('100cqh');
+      const rule = out.slice(out.indexOf('.a'));
+      const heightDecls = rule.match(/height:/g) ?? [];
+      expect(heightDecls.length).toBe(1);
+    });
+
+    it('chain is idempotent across runs', async () => {
+      const opts = { strategy: 'css-var' as const, customUnits: { cqh: 'svh' } };
+      const first = await postcss([plugin(opts)]).process(`.a { height: 100cqh; }`, {
+        from: undefined,
+      });
+      const second = await postcss([plugin(opts)]).process(first.css, { from: undefined });
+      expect(second.css).toBe(first.css);
+    });
+  });
+
   it('reports stats for css-var transforms', async () => {
     let stats;
     await run(`.a { height: 100dvh; }`, { onComplete: (s: unknown) => (stats = s) });

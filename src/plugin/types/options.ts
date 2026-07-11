@@ -22,8 +22,8 @@ export interface ViewportFallbackOptions {
    * - 'duplicate' — insert a static `vh`/`vw`/... twin before the original
    * - 'css-var' — rewrite `100dvh` to `calc(var(--pvf-dvh, 1vh) * 100)` and inject
    *   a `:root` seed upgraded via `@supports`; pair with `postcss-viewport-fallback/runtime`
-   *   for pixel-perfect values in legacy browsers. At-rule params always use 'duplicate'
-   *   because `var()` is invalid there.
+   *   for live dv* values in legacy browsers (sv*\/lv* approximated). At-rule params
+   *   always use 'duplicate' because `var()` is invalid there.
    */
   strategy?: 'duplicate' | 'css-var';
 

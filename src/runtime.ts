@@ -1,4 +1,5 @@
 const PREFIX = '--pvf-';
+const KEYBOARD_SHRINK_RATIO = 0.7;
 
 export interface ViewportVarsHandle {
   /** Recompute and set all variables immediately. */
@@ -10,8 +11,14 @@ export interface ViewportVarsHandle {
 /**
  * Legacy-browser companion for `strategy: 'css-var'`. In browsers that support
  * dynamic viewport units this is a no-op (the injected `@supports` seed already
- * upgraded the variables). In older browsers it sets pixel-perfect values from
- * the actual viewport and keeps them updated on resize.
+ * upgraded the variables). In older browsers it approximates the viewport units
+ * from the live window size:
+ * - dv* follow the current layout viewport (`innerWidth`/`innerHeight`)
+ * - sv*\/lv* track the smallest/largest size seen in the current orientation
+ * - updates are frozen while pinch-zoomed (`visualViewport.scale !== 1`)
+ * - a same-width height collapse beyond 30% while an editable element is
+ *   focused is treated as the on-screen keyboard and ignored, matching
+ *   native `dv*` semantics
  */
 export function applyViewportVars(target?: Window & typeof globalThis): ViewportVarsHandle {
   const noop: ViewportVarsHandle = { update() {}, destroy() {} };
@@ -26,22 +33,15 @@ export function applyViewportVars(target?: Window & typeof globalThis): Viewport
   let minH = Infinity;
   let maxW = 0;
   let maxH = 0;
+  let landscape: boolean | undefined;
+  let lastW = 0;
+  let lastH = 0;
 
   const set = (unit: string, px: number) => {
     style.setProperty(PREFIX + unit, px / 100 + 'px');
   };
 
-  const update = () => {
-    const vv = win.visualViewport;
-    const w = vv?.width ?? win.innerWidth;
-    const h = vv?.height ?? win.innerHeight;
-    if (!w || !h) return;
-
-    minW = Math.min(minW, w);
-    minH = Math.min(minH, h);
-    maxW = Math.max(maxW, w);
-    maxH = Math.max(maxH, h);
-
+  const apply = (w: number, h: number) => {
     const vertical = /^vertical|^sideways/.test(
       win.getComputedStyle(win.document.documentElement).writingMode || '',
     );
@@ -68,6 +68,41 @@ export function applyViewportVars(target?: Window & typeof globalThis): Viewport
     set('lvb', block(maxW, maxH));
     set('lvmin', Math.min(maxW, maxH));
     set('lvmax', Math.max(maxW, maxH));
+  };
+
+  const update = () => {
+    const scale = win.visualViewport?.scale;
+    if (scale !== undefined && Math.abs(scale - 1) > 0.001) return;
+
+    const w = win.innerWidth;
+    const h = win.innerHeight;
+    if (!w || !h) return;
+
+    const active = win.document.activeElement as HTMLElement | null;
+    const editableFocused =
+      !!active &&
+      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+    const keyboardLikely =
+      editableFocused && lastW !== 0 && w === lastW && h < lastH * KEYBOARD_SHRINK_RATIO;
+    if (keyboardLikely) return;
+
+    const nowLandscape = w > h;
+    if (landscape !== undefined && nowLandscape !== landscape) {
+      minW = Infinity;
+      minH = Infinity;
+      maxW = 0;
+      maxH = 0;
+    }
+    landscape = nowLandscape;
+    lastW = w;
+    lastH = h;
+
+    minW = Math.min(minW, w);
+    minH = Math.min(minH, h);
+    maxW = Math.max(maxW, w);
+    maxH = Math.max(maxH, h);
+
+    apply(w, h);
   };
 
   update();

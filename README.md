@@ -15,7 +15,7 @@ The universal fallback layer for modern CSS viewport units — all 18 of them:
 Two strategies, one plugin:
 
 - **`duplicate`** (default, zero-runtime) — inserts a classic `vh`/`vw`/... twin before the original declaration; old browsers use the twin, modern browsers use the real unit
-- **`css-var`** (pixel-perfect) — rewrites units to `calc(var(--pvf-dvh, 1vh) * N)` with an auto-injected `@supports` seed, optionally paired with a ~1 KB runtime that gives legacy browsers *actually dynamic* values
+- **`css-var`** — rewrites units to `calc(var(--pvf-dvh, 1vh) * N)` with an auto-injected `@supports` seed, optionally paired with a ~1 KB (gzip) runtime that gives legacy browsers *actually dynamic* `dv*` values (sv*/lv* are approximated)
 
 Works in `calc()`, `@media`/`@supports`/`@container` params, nested CSS, Tailwind output, Vue/Svelte SFCs.
 
@@ -26,7 +26,7 @@ Works in `calc()`, `@media`/`@supports`/`@container` params, nested CSS, Tailwin
 ### Core Transformation
 
 - All **18** viewport units — dynamic, small, and large × `w/h/i/b/min/max`
-- Two [strategies](#strategy): zero-runtime `duplicate` twins, or pixel-perfect `css-var` + runtime
+- Two [strategies](#strategy): zero-runtime `duplicate` twins, or dynamic `css-var` + runtime
 - Works inside `calc()`, `min()`, `max()`, `clamp()`, and nested functions of any depth
 - Decimals, negative and signed values, scientific notation, case-insensitive units
 - Safe parsing with `postcss-value-parser` — never touches strings, `url()`, or idents
@@ -93,7 +93,7 @@ The honest pitch: *if you don't need it, `browserslist: true` makes the plugin c
 
 ```js
 viewportFallback({
-  strategy: 'duplicate',   // or 'css-var' (pixel-perfect, pairs with the runtime)
+  strategy: 'duplicate',   // or 'css-var' (dynamic legacy values, pairs with the runtime)
   preserve: true,          // false removes original dvh, keeps only vh fallback
   includeCustomProps: false,
   onlyProperties: undefined,   // string | RegExp | Array<string | RegExp>
@@ -128,7 +128,7 @@ height: 100dvh;
 
 Old browsers keep the last value they understand (`100vh`); modern browsers use `100dvh`. Nothing to ship, works everywhere. Best default for most projects.
 
-**`'css-var'`** — pixel-perfect fallback for legacy browsers. Rewrites each unit to a `calc()` over a CSS variable and injects a `:root` seed that upgrades to the real unit via `@supports`:
+**`'css-var'`** — dynamic fallback for legacy browsers. Rewrites each unit to a `calc()` over a CSS variable and injects a `:root` seed that upgrades to the real unit via `@supports`:
 
 ```css
 /* input */
@@ -140,13 +140,15 @@ Old browsers keep the last value they understand (`100vh`); modern browsers use 
 .sheet { height: calc(var(--pvf-dvh, 1vh) * 100); height: 100dvh; }
 ```
 
-On its own this behaves like `duplicate` (falls back to `1vh`). Its power comes from pairing it with the **runtime** (below), which sets `--pvf-dvh` from the *actual* viewport in browsers that lack `dvh` — so `100dvh` resolves to true pixel height, not the static `vh` approximation that ignores mobile browser chrome.
+On its own this behaves like `duplicate` (falls back to `1vh`). Its power comes from pairing it with the **runtime** (below), which sets `--pvf-dvh` from the *actual* viewport in browsers that lack `dvh` — so `100dvh` follows the live viewport instead of the static `vh` approximation that ignores mobile browser chrome.
+
+> The `--pvf-` custom-property prefix is reserved by the plugin: declarations whose name starts with `--pvf-` are never transformed, and the runtime writes only those variables. Don't define your own `--pvf-*` properties.
 
 At-rule params (`@media (min-height: 100dvh)`) always use the `duplicate` strategy, because `var()`/`calc()` are invalid in feature-query context.
 
 #### The runtime (for `strategy: 'css-var'`)
 
-A dependency-free ~1 KB module. Import it once at your app entry:
+A dependency-free module (ESM: 2.9 KB raw / 1.0 KB gzip). Import it once at your app entry:
 
 ```js
 import { applyViewportVars } from 'postcss-viewport-fallback/runtime';
@@ -154,7 +156,14 @@ import { applyViewportVars } from 'postcss-viewport-fallback/runtime';
 applyViewportVars(); // no-op in browsers that support dvh
 ```
 
-In browsers **with** native `dv*` support it detects `CSS.supports('height','1dvh')` and does nothing (the `@supports` seed already handles them). In browsers **without** it, it measures `visualViewport` (falling back to `innerWidth/Height`), sets every `--pvf-*` variable to 1% of the live dimension, tracks small/large extremes across resizes, and honors vertical writing modes for `vi`/`vb`. Returns `{ update, destroy }` for manual control and SPA teardown. SSR-safe (no-op without `window`).
+In browsers **with** native `dv*` support it detects `CSS.supports('height','1dvh')` and does nothing (the `@supports` seed already handles them). In browsers **without** it, it measures the layout viewport (`innerWidth`/`innerHeight`), sets every `--pvf-*` variable to 1% of the live dimension, and honors vertical writing modes for `vi`/`vb`. Returns `{ update, destroy }` for manual control and SPA teardown. SSR-safe (no-op without `window`).
+
+**Accuracy — honest limitations.** Native `sv*`/`lv*` values cannot be reproduced exactly from JavaScript, so the runtime approximates:
+
+- `dv*` follow the live layout viewport — the closest JS can get to native behavior
+- `sv*`/`lv*` track the smallest/largest size *seen so far in the current orientation* (extremes reset on rotation), so they converge to native-like values only after the browser chrome has actually collapsed/expanded once
+- updates are **frozen during pinch-zoom** (`visualViewport.scale !== 1`), which must not affect viewport units
+- a same-width height collapse >30% while an input is focused is treated as the **on-screen keyboard** and ignored, matching native `dv*` semantics (heuristic — a deliberately resized window with a focused input can be misclassified)
 
 Framework entry points:
 
@@ -228,7 +237,7 @@ browserslist: 'last 2 versions'     // or pass a query directly
 browserslist: ['chrome >= 120', 'safari >= 17']
 ```
 
-If `caniuse-api` is not installed or no browserslist config is found, the plugin keeps transforming as usual.
+If `caniuse-api` is not installed, the plugin quietly keeps transforming as usual. An **invalid query or broken browserslist config, however, throws at plugin init** — misconfiguration is never silently ignored.
 
 #### fastSkip
 
@@ -337,7 +346,7 @@ Matching is case-insensitive (`100DVH` → `100vh`), per CSS spec.
 | Inside `calc()`/`min()`/`clamp()` | ✅ | ❌ | ❌ | — | — |
 | `@media`/`@supports`/`@container` | ✅ | ❌ | ❌ | — | — |
 | Preserves `!important` | ✅ | ✅ | ❌ ([bug](https://github.com/gooodev/postcss-viewport-unit-fallback/issues/1)) | — | — |
-| Pixel-perfect runtime option | ✅ (`css-var`) | ❌ | ❌ | ❌ | ❌ |
+| Dynamic runtime fallback option | ✅ (`css-var`) | ❌ | ❌ | ❌ | ❌ |
 | `browserslist` auto-skip | ✅ | ❌ | ❌ | ✅ (targets) | ✅ (stage) |
 | Actively maintained | ✅ | ⚠️ | ❌ (2023) | ✅ | ✅ |
 

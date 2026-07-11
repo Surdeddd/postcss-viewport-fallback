@@ -29,10 +29,13 @@ export function parseAndTransform(
     const fallbackUnit = map[unit];
     if (!fallbackUnit) return;
 
-    node.value =
-      strategy === 'css-var'
-        ? `calc(var(${CSS_VAR_PREFIX}${unit}, 1${fallbackUnit}) * ${number})`
-        : number + fallbackUnit;
+    if (strategy === 'css-var') {
+      let terminal = fallbackUnit;
+      while (map[terminal.toLowerCase()] !== undefined) terminal = map[terminal.toLowerCase()];
+      node.value = `calc(var(${CSS_VAR_PREFIX}${unit}, 1${terminal}) * ${number})`;
+    } else {
+      node.value = number + fallbackUnit;
+    }
     onUnitUsed?.(unit, fallbackUnit);
     modified = true;
   });

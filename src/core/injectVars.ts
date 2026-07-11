@@ -1,5 +1,6 @@
 import type { Document, Node, Root } from 'postcss';
 import { CSS_VAR_PREFIX, RANGE_DISABLE, RANGE_ENABLE } from './constants';
+import { resolveFallbackChain } from './units';
 
 function hasSeed(target: Root): boolean {
   let found = false;
@@ -19,27 +20,37 @@ function hasSeed(target: Root): boolean {
 
 export function injectViewportVars(
   root: Root | Document,
-  usedUnits: Map<string, string>,
+  usedUnits: Set<string>,
+  unitMap: Record<string, string>,
   generated: WeakSet<Node>,
 ): void {
   const target = root.type === 'document' ? root.first : root;
   if (!target || target.type !== 'root') return;
   if (hasSeed(target)) return;
 
-  const entries = [...usedUnits.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const base = entries.map(([u, f]) => `${CSS_VAR_PREFIX}${u}: 1${f}`).join('; ');
-  const upgrades = entries
-    .map(([u]) => `@supports (height: 1${u}) { :root { ${CSS_VAR_PREFIX}${u}: 1${u} } }`)
-    .join('\n');
+  const units = [...usedUnits].sort();
+  const chains = units.map((unit) => ({ unit, chain: resolveFallbackChain(unit, unitMap) }));
+
+  const base = chains
+    .map(({ unit, chain }) => `${CSS_VAR_PREFIX}${unit}: 1${chain[0]}`)
+    .join('; ');
+  const upgrades = chains.flatMap(({ unit, chain }) =>
+    chain
+      .slice(1)
+      .map(
+        (step) =>
+          `@supports (height: 1${step}) { :root { ${CSS_VAR_PREFIX}${unit}: 1${step} } }`,
+      ),
+  );
 
   const seed =
     `/* ${RANGE_DISABLE} */\n` +
-    `:root { ${base} }\n${upgrades}\n` +
+    `:root { ${base} }\n${upgrades.join('\n')}\n` +
     `/* ${RANGE_ENABLE} */`;
 
   target.prepend(seed);
 
-  const seedNodeCount = 3 + entries.length;
+  const seedNodeCount = 3 + upgrades.length;
   let i = 0;
   target.each((node) => {
     if (i++ >= seedNodeCount) return false;

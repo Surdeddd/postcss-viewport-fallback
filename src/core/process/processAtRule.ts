@@ -43,7 +43,7 @@ export function processAtRule(
   const parent = atRule.parent;
   if (parent) {
     const isDup = hasSiblingDuplicate(parent, (node) =>
-      node.type === 'atrule' && node.name === ruleName && node.params === fallback,
+      node.type === 'atrule' && node.name.toLowerCase() === ruleName && node.params === fallback,
     );
     if (isDup) {
       ctx.stats.skipped++;

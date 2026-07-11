@@ -11,7 +11,11 @@ permissions:
   id-token: write
 
 jobs:
+  ci:
+    uses: ./.github/workflows/test.yml
+
   release:
+    needs: ci
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,9 +27,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
       - run: npm run build
       - run: npx semantic-release
         env:
