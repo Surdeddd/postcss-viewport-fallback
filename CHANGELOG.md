@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.6.0...v1.6.1) (2026-07-11)
+
+
+### Bug Fixes
+
+* runtime viewport semantics, css-var chain resolution, filter and validation hardening ([c6252c2](https://github.com/Surdeddd/postcss-viewport-fallback/commit/c6252c2268797b550a9ad1f3af190923c96322f2))
+
 # [1.6.0](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.5.0...v1.6.0) (2026-07-06)
 
 
