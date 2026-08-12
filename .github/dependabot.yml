@@ -7,6 +7,13 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # typescript-eslint peer-caps TypeScript at <6.1.0 (still true in 8.67.0,
+      # the latest release). Bumping to TS 7 makes `npm ci` fail with ERESOLVE
+      # and took every grouped dev-dependency PR down with it. Hold the major
+      # until typescript-eslint ships TS 7 support, then drop this entry.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
