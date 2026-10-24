@@ -1,5 +1,7 @@
 # postcss-viewport-fallback
 
+Русская версия: [README.ru.md](https://github.com/Surdeddd/postcss-viewport-fallback/blob/main/README.ru.md)
+
 [![npm version](https://img.shields.io/npm/v/postcss-viewport-fallback)](https://www.npmjs.com/package/postcss-viewport-fallback)
 [![npm downloads](https://img.shields.io/npm/dm/postcss-viewport-fallback)](https://www.npmjs.com/package/postcss-viewport-fallback)
 [![CI](https://github.com/Surdeddd/postcss-viewport-fallback/actions/workflows/test.yml/badge.svg)](https://github.com/Surdeddd/postcss-viewport-fallback/actions/workflows/test.yml)
