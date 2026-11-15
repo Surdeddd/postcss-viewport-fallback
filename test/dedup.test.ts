@@ -18,14 +18,17 @@ describe('dedup optimization', () => {
   it('should not duplicate @media fallback', async () => {
     const input = `@media (min-height: 100vh) {} @media (min-height: 100dvh) {}`;
     const result = await postcss([plugin()]).process(input, { from: undefined });
-    expect(result.css).toBe(`@media (min-height: 100vh) {} @media (min-height: 100dvh) {}`);
+    expect(result.css).toBe(
+      `@media (min-height: 100vh) {} @media (min-height: 100dvh) {}`
+    );
   });
 
   it('should add @media fallback if no duplicate', async () => {
     const input = `@media (min-height: 100dvh) { .a { color: red; } }`;
     const result = await postcss([plugin()]).process(input, { from: undefined });
-    expect(result.css).toContain(`@media (min-height: 100vh)`);
-    expect(result.css).toContain(`@media (min-height: 100dvh)`);
+    expect(result.css).toBe(
+      `@media (min-height: 100vh), (min-height: 100dvh) { .a { color: red; } }`
+    );
   });
 
   it('should not duplicate on repeated plugin runs', async () => {

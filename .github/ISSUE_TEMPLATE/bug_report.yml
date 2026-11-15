@@ -1,0 +1,39 @@
+name: Bug report
+description: The plugin produced CSS that is wrong, or failed
+labels: [bug]
+body:
+  - type: textarea
+    id: input
+    attributes:
+      label: Input CSS
+      description: A few lines are enough.
+      render: css
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output CSS
+      render: css
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: And the browser in which the result is wrong, if that matters.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Plugin options and the PostCSS pipeline
+      description: Options passed to postcss-viewport-fallback and the other plugins, in order.
+      render: js
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: postcss-viewport-fallback 2.0.0, postcss 8.5.31, Node 22
+    validations:
+      required: true

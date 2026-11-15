@@ -1,5 +1,6 @@
-const PREFIX = '--pvf-';
-const KEYBOARD_SHRINK_RATIO = 0.7;
+var PREFIX = '--pvf-';
+var KEYBOARD_SHRINK_RATIO = 0.7;
+var VERTICAL_WRITING_MODE = /^vertical|^sideways/;
 
 export interface ViewportVarsHandle {
   /** Recompute and set all variables immediately. */
@@ -7,6 +8,8 @@ export interface ViewportVarsHandle {
   /** Remove listeners. Set variables stay until overwritten. */
   destroy(): void;
 }
+
+function noop(): void {}
 
 /**
  * Legacy-browser companion for `strategy: 'css-var'`. In browsers that support
@@ -19,74 +22,66 @@ export interface ViewportVarsHandle {
  * - a same-width height collapse beyond 30% while an editable element is
  *   focused is treated as the on-screen keyboard and ignored, matching
  *   native `dv*` semantics
+ * - a burst of resize events costs one update per frame, and a page restored
+ *   from the back/forward cache is measured again
  */
-export function applyViewportVars(target?: Window & typeof globalThis): ViewportVarsHandle {
-  const noop: ViewportVarsHandle = { update() {}, destroy() {} };
-  const win = target ?? (typeof window !== 'undefined' ? window : undefined);
-  if (!win?.document?.documentElement) return noop;
-  if (typeof win.CSS?.supports === 'function' && win.CSS.supports('height', '1dvh')) {
-    return noop;
+export function applyViewportVars(
+  target?: Window & typeof globalThis
+): ViewportVarsHandle {
+  var win = target || (typeof window !== 'undefined' ? window : undefined);
+  var root = win && win.document && win.document.documentElement;
+  if (!win || !root) return { update: noop, destroy: noop };
+  if (
+    win.CSS &&
+    typeof win.CSS.supports === 'function' &&
+    win.CSS.supports('height', '1dvh')
+  ) {
+    return { update: noop, destroy: noop };
   }
 
-  const style = win.document.documentElement.style;
-  let minW = Infinity;
-  let minH = Infinity;
-  let maxW = 0;
-  let maxH = 0;
-  let landscape: boolean | undefined;
-  let lastW = 0;
-  let lastH = 0;
+  var view = win;
+  var element = root;
+  var style = root.style;
+  var viewport = win.visualViewport;
+  var minW = Infinity;
+  var minH = Infinity;
+  var maxW = 0;
+  var maxH = 0;
+  var landscape: boolean | undefined;
+  var lastW = 0;
+  var lastH = 0;
 
-  const set = (unit: string, px: number) => {
+  function set(unit: string, px: number): void {
     style.setProperty(PREFIX + unit, px / 100 + 'px');
-  };
+  }
 
-  const apply = (w: number, h: number) => {
-    const vertical = /^vertical|^sideways/.test(
-      win.getComputedStyle(win.document.documentElement).writingMode || '',
-    );
-    const inline = (width: number, height: number) => (vertical ? height : width);
-    const block = (width: number, height: number) => (vertical ? width : height);
+  function setVariant(variant: string, w: number, h: number, vertical: boolean): void {
+    set(variant + 'vw', w);
+    set(variant + 'vh', h);
+    set(variant + 'vi', vertical ? h : w);
+    set(variant + 'vb', vertical ? w : h);
+    set(variant + 'vmin', Math.min(w, h));
+    set(variant + 'vmax', Math.max(w, h));
+  }
 
-    set('dvw', w);
-    set('dvh', h);
-    set('dvi', inline(w, h));
-    set('dvb', block(w, h));
-    set('dvmin', Math.min(w, h));
-    set('dvmax', Math.max(w, h));
+  function update(): void {
+    if (viewport && Math.abs(viewport.scale - 1) > 0.001) return;
 
-    set('svw', minW);
-    set('svh', minH);
-    set('svi', inline(minW, minH));
-    set('svb', block(minW, minH));
-    set('svmin', Math.min(minW, minH));
-    set('svmax', Math.max(minW, minH));
-
-    set('lvw', maxW);
-    set('lvh', maxH);
-    set('lvi', inline(maxW, maxH));
-    set('lvb', block(maxW, maxH));
-    set('lvmin', Math.min(maxW, maxH));
-    set('lvmax', Math.max(maxW, maxH));
-  };
-
-  const update = () => {
-    const scale = win.visualViewport?.scale;
-    if (scale !== undefined && Math.abs(scale - 1) > 0.001) return;
-
-    const w = win.innerWidth;
-    const h = win.innerHeight;
+    var w = view.innerWidth;
+    var h = view.innerHeight;
     if (!w || !h) return;
 
-    const active = win.document.activeElement as HTMLElement | null;
-    const editableFocused =
+    var active = view.document.activeElement as HTMLElement | null;
+    var editableFocused =
       !!active &&
-      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
-    const keyboardLikely =
+      (active.tagName === 'INPUT' ||
+        active.tagName === 'TEXTAREA' ||
+        active.isContentEditable);
+    var keyboardLikely =
       editableFocused && lastW !== 0 && w === lastW && h < lastH * KEYBOARD_SHRINK_RATIO;
     if (keyboardLikely) return;
 
-    const nowLandscape = w > h;
+    var nowLandscape = w > h;
     if (landscape !== undefined && nowLandscape !== landscape) {
       minW = Infinity;
       minH = Infinity;
@@ -102,20 +97,39 @@ export function applyViewportVars(target?: Window & typeof globalThis): Viewport
     maxW = Math.max(maxW, w);
     maxH = Math.max(maxH, h);
 
-    apply(w, h);
-  };
+    var computed = view.getComputedStyle(element);
+    var vertical = VERTICAL_WRITING_MODE.test((computed && computed.writingMode) || '');
+    setVariant('d', w, h, vertical);
+    setVariant('s', minW, minH, vertical);
+    setVariant('l', maxW, maxH, vertical);
+  }
+
+  var frame = 0;
+
+  function flush(): void {
+    frame = 0;
+    update();
+  }
+
+  function schedule(): void {
+    if (!view.requestAnimationFrame) update();
+    else if (!frame) frame = view.requestAnimationFrame(flush);
+  }
+
+  function destroy(): void {
+    if (frame) view.cancelAnimationFrame(frame);
+    frame = 0;
+    view.removeEventListener('resize', schedule);
+    view.removeEventListener('orientationchange', schedule);
+    view.removeEventListener('pageshow', schedule);
+    if (viewport) viewport.removeEventListener('resize', schedule);
+  }
 
   update();
-  win.addEventListener('resize', update);
-  win.addEventListener('orientationchange', update);
-  win.visualViewport?.addEventListener('resize', update);
+  view.addEventListener('resize', schedule);
+  view.addEventListener('orientationchange', schedule);
+  view.addEventListener('pageshow', schedule);
+  if (viewport) viewport.addEventListener('resize', schedule);
 
-  return {
-    update,
-    destroy() {
-      win.removeEventListener('resize', update);
-      win.removeEventListener('orientationchange', update);
-      win.visualViewport?.removeEventListener('resize', update);
-    },
-  };
+  return { update: update, destroy: destroy };
 }

@@ -1,0 +1,101 @@
+export type Language = 'en' | 'ru';
+
+const en = {
+  tag: 'playground',
+  language: 'Language',
+  options: 'Options',
+  input: 'Input',
+  output: 'Output',
+  example: 'Example',
+  legend: 'written by the plugin',
+  copy: 'Copy',
+  copied: 'Copied',
+  copyConfig: 'Copy config',
+  copyLink: 'Copy link',
+  config: 'postcss.config.js',
+  declarations: 'declarations',
+  atRules: 'at-rules',
+  skipped: 'already had a fallback',
+  time: 'time',
+  ms: 'ms',
+  error: 'This stylesheet cannot be processed',
+  warnings: 'Notes from the plugin',
+  hintStrategy: 'How the fallback is written',
+  hintPreserve: 'Keep the modern value next to the fallback',
+  hintCustomProps: 'Custom properties get a fallback too',
+  hintFragment: 'The input is the body of a rule (CSS-in-JS)',
+  hintSeed: 'Write the --pvf-* seed into the stylesheet',
+  hintExisting: 'What counts as a fallback you wrote yourself',
+  hintLogical: 'What dvi and dvb fall back to',
+  hintUnits: 'More units, as unit: fallback',
+  exOverview: 'Overview',
+  exVar: 'Values with var()',
+  exCustom: 'Custom properties',
+  exQueries: '@media and @container',
+  exKeyframes: '@keyframes',
+  exNesting: 'Nested CSS',
+  exCssVar: 'css-var strategy',
+  exOwn: 'Fallbacks you wrote yourself',
+  aboutTitle: 'What you are looking at',
+  aboutLead:
+    'postcss-viewport-fallback is a PostCSS plugin. It gives dvh, svh, lvh and the other dynamic viewport units a vh / vw fallback that older browsers really apply: in calc(), next to var(), in custom properties, @media, @container and @keyframes. The plugin itself runs on this page, so the output is exactly what your build would get.',
+  aboutInstall: 'Add it to a project',
+  aboutDocs: 'Documentation',
+  aboutOptions: 'All options',
+  aboutNpm: 'Package on npm',
+};
+
+const ru: typeof en = {
+  tag: 'песочница',
+  language: 'Язык',
+  options: 'Опции',
+  input: 'Вход',
+  output: 'Выход',
+  example: 'Пример',
+  legend: 'написано плагином',
+  copy: 'Копировать',
+  copied: 'Скопировано',
+  copyConfig: 'Копировать конфиг',
+  copyLink: 'Копировать ссылку',
+  config: 'postcss.config.js',
+  declarations: 'объявлений',
+  atRules: 'at-правил',
+  skipped: 'уже с fallback-ом',
+  time: 'время',
+  ms: 'мс',
+  error: 'Эту таблицу стилей не удалось обработать',
+  warnings: 'Замечания плагина',
+  hintStrategy: 'Как пишется fallback',
+  hintPreserve: 'Оставлять современное значение рядом с fallback-ом',
+  hintCustomProps: 'Пользовательские свойства тоже получают fallback',
+  hintFragment: 'На входе тело правила (CSS-in-JS)',
+  hintSeed: 'Писать seed переменных --pvf-* в таблицу стилей',
+  hintExisting: 'Что считать fallback-ом, который вы написали сами',
+  hintLogical: 'До чего понижаются dvi и dvb',
+  hintUnits: 'Свои единицы в виде единица: fallback',
+  exOverview: 'Обзор',
+  exVar: 'Значения с var()',
+  exCustom: 'Пользовательские свойства',
+  exQueries: '@media и @container',
+  exKeyframes: '@keyframes',
+  exNesting: 'Вложенный CSS',
+  exCssVar: 'Стратегия css-var',
+  exOwn: 'Fallback-и, написанные вами',
+  aboutTitle: 'Что перед вами',
+  aboutLead:
+    'postcss-viewport-fallback — плагин PostCSS. Он даёт dvh, svh, lvh и остальным динамическим viewport-единицам fallback на vh / vw, который старые браузеры действительно применяют: в calc(), рядом с var(), в пользовательских свойствах, @media, @container и @keyframes. На этой странице работает сам плагин, поэтому результат ровно такой, какой получит ваша сборка.',
+  aboutInstall: 'Подключить к проекту',
+  aboutDocs: 'Документация',
+  aboutOptions: 'Все опции',
+  aboutNpm: 'Пакет в npm',
+};
+
+export type StringKey = keyof typeof en;
+
+export const STRINGS: Record<Language, Record<StringKey, string>> = { en, ru };
+
+/** Russian for a browser set to Russian, English for everyone else. */
+export function preferredLanguage(stored: string | null, browser: string): Language {
+  if (stored === 'en' || stored === 'ru') return stored;
+  return /^ru\b/i.test(browser) ? 'ru' : 'en';
+}

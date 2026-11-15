@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "types": []
+  },
+  "files": ["esm.mts", "cjs.cts", "runtime.cts"]
+}

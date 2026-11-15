@@ -11,7 +11,7 @@ describe('property filters: RegExp flags g/y', () => {
   it('global-flag filter matches consistently across many declarations', async () => {
     const out = await run(
       `.a { height: 100dvh; } .b { height: 50dvh; } .c { height: 25dvh; }`,
-      { onlyProperties: /height/g },
+      { onlyProperties: /height/g }
     );
     expect(out).toContain('height: 100vh');
     expect(out).toContain('height: 50vh');
@@ -64,18 +64,24 @@ describe('property filters: case sensitivity', () => {
 
 describe('customUnits validation', () => {
   it('rejects an empty key instead of matching every number', () => {
-    expect(() => plugin({ customUnits: { '': 'vh' } })).toThrow(/invalid customUnits key/);
+    expect(() => plugin({ customUnits: { '': 'vh' } })).toThrow(
+      /invalid customUnits key/
+    );
   });
 
   it('rejects non-alphabetic keys', () => {
-    expect(() => plugin({ customUnits: { '1x)': 'vh' } })).toThrow(/invalid customUnits key/);
+    expect(() => plugin({ customUnits: { '1x)': 'vh' } })).toThrow(
+      /invalid customUnits key/
+    );
   });
 
   it('rejects empty and non-unit fallback values', () => {
-    expect(() => plugin({ customUnits: { cqh: '' } })).toThrow(/invalid customUnits fallback/);
-    expect(() =>
-      plugin({ customUnits: { cqh: 12 as unknown as string } }),
-    ).toThrow(/invalid customUnits fallback/);
+    expect(() => plugin({ customUnits: { cqh: '' } })).toThrow(
+      /invalid customUnits fallback/
+    );
+    expect(() => plugin({ customUnits: { cqh: 12 as unknown as string } })).toThrow(
+      /invalid customUnits fallback/
+    );
   });
 
   it('still allows uppercase keys, overrides, chains; still rejects cycles', async () => {
@@ -98,8 +104,9 @@ describe('case-insensitive at-rules', () => {
   it('@MEDIA is idempotent across runs and keeps original casing', async () => {
     const input = `@MEDIA (min-height: 100dvh) { .a { color: red; } }`;
     const first = await run(input);
-    expect(first).toContain('@MEDIA (min-height: 100vh)');
-    expect((first.match(/@MEDIA/g) ?? []).length).toBe(2);
+    expect(first).toBe(
+      `@MEDIA (min-height: 100vh), (min-height: 100dvh) { .a { color: red; } }`
+    );
 
     const second = await run(first);
     expect(second).toBe(first);
@@ -132,7 +139,7 @@ describe('case-insensitive at-rules', () => {
 describe('browserslist config errors are loud', () => {
   it('throws on an invalid browserslist query instead of silently ignoring it', () => {
     expect(() => plugin({ browserslist: 'definitely !!! not a query' })).toThrow(
-      /invalid browserslist configuration/,
+      /invalid browserslist configuration/
     );
   });
 

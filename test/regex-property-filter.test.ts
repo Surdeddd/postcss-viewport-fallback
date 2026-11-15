@@ -5,9 +5,12 @@ import plugin from '../src';
 describe('regex property filtering', () => {
   it('onlyProperties with RegExp', async () => {
     const input = `.a { height: 100dvh; width: 50dvw; margin: 10dvh; }`;
-    const result = await postcss([plugin({ onlyProperties: [/^height$/] })]).process(input, {
-      from: undefined,
-    });
+    const result = await postcss([plugin({ onlyProperties: [/^height$/] })]).process(
+      input,
+      {
+        from: undefined,
+      }
+    );
     expect(result.css).toContain('height: 100vh');
     expect(result.css).not.toContain('width: 50vw');
     expect(result.css).not.toContain('margin: 10vh');
@@ -27,9 +30,12 @@ describe('regex property filtering', () => {
 
   it('excludeProperties with RegExp', async () => {
     const input = `.a { height: 100dvh; padding-top: 10dvh; padding-bottom: 5dvh; }`;
-    const result = await postcss([plugin({ excludeProperties: [/^padding/] })]).process(input, {
-      from: undefined,
-    });
+    const result = await postcss([plugin({ excludeProperties: [/^padding/] })]).process(
+      input,
+      {
+        from: undefined,
+      }
+    );
     expect(result.css).toContain('height: 100vh');
     expect(result.css).not.toContain('padding-top: 10vh');
     expect(result.css).not.toContain('padding-bottom: 5vh');
@@ -37,9 +43,12 @@ describe('regex property filtering', () => {
 
   it('string filter still works', async () => {
     const input = `.a { height: 100dvh; width: 50dvw; }`;
-    const result = await postcss([plugin({ onlyProperties: ['height'] })]).process(input, {
-      from: undefined,
-    });
+    const result = await postcss([plugin({ onlyProperties: ['height'] })]).process(
+      input,
+      {
+        from: undefined,
+      }
+    );
     expect(result.css).toContain('height: 100vh');
     expect(result.css).not.toContain('width: 50vw');
   });

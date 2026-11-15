@@ -35,7 +35,7 @@ describe('@media support', () => {
   it('works with deeply nested structures', async () => {
     const css = `
       @media screen {
-        @supports (height: 100dvh) {
+        @supports (display: grid) {
           .inner {
             padding: calc(10dvh + 2px);
           }

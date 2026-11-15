@@ -1,49 +1,50 @@
 # Roadmap
 
-## Current Capabilities (built-in)
+Русская версия: [ROADMAP.ru.md](./ROADMAP.ru.md)
 
-The plugin already supports the following features out of the box:
+## What the plugin does today
 
-- Fallback transformation for **all 18** CSS Values 4 viewport units (`sv*`, `lv*`, `dv*` × `w/h/i/b/min/max`)
-- Two strategies: `duplicate` (zero-runtime twin declaration) and `css-var` (pixel-perfect `calc(var(...))` + `@supports` seed + optional runtime)
-- Dependency-free ~1 KB browser runtime (`postcss-viewport-fallback/runtime`) for pixel-perfect legacy fallbacks
-- Custom unit mapping via `customUnits` (chains allowed, cycles rejected at init)
-- Works inside functions: `calc()`, `min()`, `max()`, `clamp()`, nested to any depth
-- Fallback generation inside `@media`, `@supports`, `@container` params
-- Case-insensitive matching; scientific-notation and signed numbers
-- Correct handling of edge cases: strings, `url()`, invalid/malformed values, idents containing a unit substring
-- Property allowlist (`onlyProperties`) / denylist (`excludeProperties`), single value or array
-- `browserslist` auto-skip (boolean or query) + `fastSkip` per-file early-exit
-- Point (`off`) and range (`disable`/`enable`) control comments, cascading into nested blocks
-- Debug presets, `onTransform` / `onComplete` callbacks, `strict` CI mode
-- Dedup optimization, per-run stats isolation (concurrent-safe via `prepare()`)
+- Fallbacks for **all 18** viewport units of CSS Values 4 (`sv*`, `lv*`, `dv*` × `w/h/i/b/min/max`), at any depth of `calc()`, `min()`, `max()`, `clamp()`, with or without whitespace around operators
+- Two strategies: `duplicate` (a static twin, nothing to ship) and `css-var` (`calc(var(...))`, a seed, and an optional 1.1 KB runtime written in ES5 syntax that gives legacy browsers live `dv*` values)
+- Values with `var()` / `env()` and custom properties get a fallback that really applies: the fallback stays in the rule, the original moves under `@supports` together with the later declarations that can meet it
+- A table of shorthands, longhands, aliases and flow-relative properties, built from the CSS specifications and compared with Chrome, tells which declarations can meet: only those are repeated, and a property the table does not know is treated as related to every other one
+- One `@supports (height: 1dvh)` probe for all built-in units; neighbouring declarations share a block
+- `@media`, `@import` and `@custom-media` get the lowered query as one more entry of the list; `@container` gets a twin rule; `@keyframes` with `var()` values and `@property` with an `initial-value` are repeated under `@supports`, once for every step of a unit chain
+- `@supports` feature queries are never rewritten, and what they guard gets no fallback; conditions with `not`, `and`, `or` are evaluated for the units they guarantee
+- A fallback you wrote yourself is recognised where it holds the same place in the cascade, also across declarations of unrelated properties (`existingFallback: 'exact' | 'any'`)
+- Logical units fall back to physical ones by default (`logicalFallback`)
+- CSS-in-JS fragments can take nested `@supports` blocks (`fragmentGuards`); the css-var seed can be shipped once (`seed: false` + `postcss-viewport-fallback/seed.css`)
+- Custom unit mapping (`customUnits`), with chains and cycle detection
+- `browserslist` auto-skip, resolved for every processed file; `fastSkip`
+- Property filters, point and range control comments, `strict` mode for CI, debug presets, `onTransform` / `onComplete`
+- Options are validated when the plugin is created, unknown names included; messages in English or Russian (`PVF_LANG=ru`)
+- Works after the plugins that visit nodes (`postcss-nesting`, `postcss-logical`, `postcss-preset-env`), so that their order in the config does not change the result
+- Loads through `postcss-load-config`, `import` and `require`; accurate source maps; safe to run on many files at once
+- A [playground](https://surdeddd.github.io/postcss-viewport-fallback/) runs the plugin in the browser: paste CSS, switch options, see which lines the plugin wrote, copy the config or a link to the result
 
-These capabilities require no additional syntax plugins and work on pure CSS input.
+## Ideas under consideration
 
----
+### Dropping the `@container` twin
 
-## Ideas Under Consideration
+Once lists of container conditions are supported widely, `@container` can get the same treatment as `@media`: one more condition in the list instead of a second rule.
 
-### Advisory / lint mode
+### Custom units in the runtime
 
-An opt-in `advise: true` that warns (via `result.warn()`) on likely-wrong usage: `dvh` on `position: fixed` or animated properties (jank), suggesting `svh`; flagging the Safari 15.6 `dvh` bug. Turns the plugin from a transform into a viewport-units authority.
-
-### Interactive playground
-
-A static page (the plugin runs in-browser via postcss standalone) to paste CSS, toggle options, and see output — the pattern that converts skeptics for preset-env and LightningCSS.
+The runtime covers the built-in units. It could take the `customUnits` map and keep those variables live too.
 
 ### Discovery
 
-List on [postcss.org plugins](https://postcss.org/docs/postcss-plugins); framework recipe pages (Vite, Next, Nuxt, Astro).
+A listing on [postcss.org](https://postcss.org/docs/postcss-plugins) and standalone recipe pages for the common frameworks.
 
----
+### An ESM-only package
 
-## Explicitly Out of Scope
+Worth considering once Node 20 is out of support.
 
-- **JSX/Angular/Svelte inline-style-object transforms** — require a Babel/compiler plugin, not PostCSS; no observed demand. `postcss-html` already covers `<style>` blocks in HTML/Vue/Svelte SFCs.
-- **`-webkit-fill-available` mode** — end-of-life technique (WebKit-only, breaks in `calc()`, height-only); its target population (iOS < 15.4) is well under 1% and shrinking. `postcss-100vh-fix` owns that niche.
-- **LightningCSS integration** — LightningCSS deliberately does **not** lower viewport units ([issue #534](https://github.com/parcel-bundler/lightningcss/issues/534); the maintainer considers static `dvw → vw` incorrect and a real polyfill JS-dependent). This is a differentiation opportunity for `strategy: 'css-var'`, not something to defer to.
+## Explicitly out of scope
 
-> Correction: earlier versions of this file claimed "LightningCSS handles viewport fallbacks natively." That was false — it does not, and has declined to.
-
----
+- **Rewriting `@supports` feature queries.** 1.x turned `@supports (height: 100dvh)` into an extra `@supports (height: 100vh)` block. That un-gates styles the author gated on purpose and breaks hand-written ladders, so 2.0 removed it for good.
+- **Gating the lowered media query.** Wrapping it in `@supports not (height: 1dvh)` would keep modern browsers from evaluating it, at the price of duplicating the block again — the very thing the query list avoids. The narrow case it would fix is described under "Known limitations" in the README.
+- **An advisory or lint mode.** Warning about `dvh` on fixed or animated elements is a job for a stylelint rule, not for a transform.
+- **Inline style objects in JSX, Angular or Svelte.** They need a compiler plugin, not PostCSS. `postcss-html` already covers `<style>` blocks and `style=""` attributes.
+- **A `-webkit-fill-available` mode.** An end-of-life technique (WebKit only, breaks in `calc()`, height only) for a population well under 1%. `postcss-100vh-fix` owns that niche.
+- **LightningCSS integration.** LightningCSS deliberately does not lower viewport units ([issue #534](https://github.com/parcel-bundler/lightningcss/issues/534)); this plugin runs fine next to it.

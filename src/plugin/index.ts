@@ -1,155 +1,143 @@
-import { createRequire } from 'node:module';
-import type { Declaration, AtRule, Plugin, Result, Root, Document } from 'postcss';
-import { DEFAULT_OPTIONS } from '../core/defaults';
-import { assertNoUnitCycles, mergeUnitMap } from '../core/units';
-import { createUnitRegex, createQuickTest } from '../core/regex';
-import { injectViewportVars } from '../core/injectVars';
-import type { ResolvedConfig } from '../core/config';
-import type { RunContext } from '../core/context';
-import type {
-  ViewportFallbackOptions,
-  TransformStats,
-  PropertyFilter,
-  PropertyFilterInput,
-} from './types';
+import type { AtRule, Comment, Declaration, Document, Helpers, Plugin } from 'postcss';
+import { resolveConfig } from '../core/config';
+import { PLUGIN_NAME } from '../core/constants';
+import { createRunContext, emptyStats } from '../core/context';
+import { t } from '../core/messages';
+import { processAtRule, processDeclaration, processQueryList } from '../core/process';
+import { unproxy } from '../core/proxy';
+import { injectSeeds } from '../core/seed';
+import type { ViewportFallbackOptions } from './types';
 
-import { processAtRule, processDeclaration } from '../core/process';
+const WALK_FREE = new Set(['postcssPlugin', 'postcssVersion', 'Once', 'OnceExit']);
 
-function checkBrowserslistSupport(query: true | string | string[]): boolean {
-  let browserslist: (query?: string | string[]) => string[];
-  let caniuse: { isSupported: (feat: string, browsers: string | string[]) => boolean };
-  try {
-    const req = createRequire(import.meta.url);
-    browserslist = req('browserslist') as typeof browserslist;
-    caniuse = req('caniuse-api') as typeof caniuse;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') return false;
-    throw error;
-  }
-  try {
-    const targets = query === true ? browserslist() : browserslist(query);
-    return caniuse.isSupported('viewport-unit-variants', targets);
-  } catch (error) {
-    throw new Error(
-      `[postcss-viewport-fallback] invalid browserslist configuration: ${(error as Error).message}`,
-    );
-  }
-}
-
-function sanitizePattern(pattern: string | RegExp): string | RegExp {
-  if (pattern instanceof RegExp && /[gy]/.test(pattern.flags)) {
-    return new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ''));
-  }
-  return pattern;
-}
-
-function normalizeFilter(filter: PropertyFilterInput | undefined): PropertyFilter | undefined {
-  if (filter === undefined) return undefined;
-  return (Array.isArray(filter) ? filter : [filter]).map(sanitizePattern);
+/**
+ * Whether a plugin of the pipeline may take part in the walk: its visitors would run between
+ * ours. Read the way PostCSS reads a plugin: `prepare` wherever it is defined, and every
+ * enumerable key, inherited ones included.
+ */
+function walksTheTree(other: object): boolean {
+  if ((other as Partial<Plugin>).prepare) return true;
+  for (const key in other) if (!WALK_FREE.has(key)) return true;
+  return false;
 }
 
 export default function viewportFallback(options: ViewportFallbackOptions = {}): Plugin {
-  const opts: ViewportFallbackOptions = { ...DEFAULT_OPTIONS, ...options };
+  const plugin = resolveConfig(options);
 
-  if (opts.browserslist && checkBrowserslistSupport(opts.browserslist)) {
-    return {
-      postcssPlugin: 'postcss-viewport-fallback',
-      OnceExit() {
-        opts.onComplete?.({ declarations: 0, atRules: 0, skipped: 0, timeMs: 0 });
-      },
-    };
-  }
+  const self: Plugin = {
+    postcssPlugin: PLUGIN_NAME,
 
-  const unitMap = mergeUnitMap(opts.customUnits);
-  assertNoUnitCycles(unitMap);
-  const unitKeys = Object.keys(unitMap);
+    prepare(result) {
+      const config = plugin.forFile(result.opts.from ?? result.root?.source?.input.file);
+      let finished = false;
+      const once = (report: () => void) => (): void => {
+        if (finished) return;
+        finished = true;
+        report();
+      };
+      /** PostCSS calls `OnceExit` per root: a document without one reports as it is left. */
+      const rootless =
+        (report: () => void) =>
+        (document: Document): void => {
+          if (document.nodes.length === 0) report();
+        };
 
-  const shouldPreserve = options.preserve !== undefined
-    ? options.preserve
-    : options.replace !== undefined
-      ? !options.replace
-      : true;
+      const sourceText = result.root?.source?.input.css;
+      const nothingToDo =
+        !config.active ||
+        (config.fastSkip &&
+          typeof sourceText === 'string' &&
+          !config.quickTest.test(sourceText));
 
-  const strategy = opts.strategy ?? 'duplicate';
-
-  const config: ResolvedConfig = {
-    ...opts,
-    strategy,
-    excludeProperties: normalizeFilter(opts.excludeProperties),
-    onlyProperties: normalizeFilter(opts.onlyProperties),
-    unitMap,
-    unitRegex: createUnitRegex(unitKeys),
-    quickTest: createQuickTest(unitKeys),
-    shouldPreserve,
-  };
-
-  return {
-    postcssPlugin: 'postcss-viewport-fallback',
-
-    prepare(result: Result) {
-      if (config.fastSkip) {
-        const css = result.root?.source?.input?.css;
-        if (typeof css === 'string' && !config.quickTest.test(css)) {
-          return {
-            OnceExit() {
-              config.onComplete?.({ declarations: 0, atRules: 0, skipped: 0, timeMs: 0 });
-            },
-          };
-        }
+      if (nothingToDo) {
+        const report = once(() => config.onComplete?.(emptyStats()));
+        return { OnceExit: report, DocumentExit: rootless(report) };
       }
 
-      const startTime = performance.now();
-      const stats: TransformStats = { declarations: 0, atRules: 0, skipped: 0, timeMs: 0 };
-      const usedUnits = new Set<string>();
-      const ctx: RunContext = {
-        stats,
-        usedUnits,
-        generated: new WeakSet(),
-        transformCtx: {
-          strategy,
-          onUnitUsed:
-            strategy === 'css-var' ? (unit) => usedUnits.add(unit) : undefined,
-        },
-      };
+      const alone = !result.processor.plugins.some(
+        (other) => other !== self && typeof other === 'object' && walksTheTree(other)
+      );
+      const ctx = createRunContext(result);
+      const startedAt = performance.now();
+      let spent = 0;
 
-      return {
-        Declaration(decl: Declaration) {
-          processDeclaration(decl, config, ctx, result);
+      const walk = {
+        Comment(comment: Comment) {
+          ctx.comments.observe(unproxy(comment));
+        },
+
+        Declaration(decl: Declaration, helpers: Helpers) {
+          processDeclaration(decl, config, ctx, helpers);
         },
 
         AtRule: {
           media(atRule: AtRule) {
-            processAtRule(atRule, 'media', config, ctx, result);
+            processQueryList(atRule, 'media', config, ctx);
           },
-          supports(atRule: AtRule) {
-            processAtRule(atRule, 'supports', config, ctx, result);
+          import(atRule: AtRule) {
+            processQueryList(atRule, 'import', config, ctx);
+          },
+          'custom-media'(atRule: AtRule) {
+            processQueryList(atRule, 'custom-media', config, ctx);
           },
           container(atRule: AtRule) {
-            processAtRule(atRule, 'container', config, ctx, result);
+            processAtRule(atRule, config, ctx);
           },
         },
+      };
 
-        OnceExit(root: Root | Document) {
-          if (strategy === 'css-var' && usedUnits.size > 0) {
-            injectViewportVars(root, usedUnits, unitMap, ctx.generated);
-            usedUnits.clear();
+      const seed = (): void => {
+        if (config.seed && ctx.usedUnits.size > 0) {
+          injectSeeds(result, ctx.usedUnits, config);
+        }
+      };
+
+      const summarize = (elapsed: number): void => {
+        const { stats } = ctx;
+        stats.timeMs = Math.round(elapsed * 100) / 100;
+
+        if (config.summary) {
+          result.warn(
+            t('summary', {
+              declarations: stats.declarations,
+              atRules: stats.atRules,
+              skipped: stats.skipped ? t('summarySkipped', { count: stats.skipped }) : '',
+              timeMs: stats.timeMs,
+            })
+          );
+        }
+
+        config.onComplete?.(stats);
+      };
+
+      if (alone) {
+        const report = once(() => {
+          seed();
+          summarize(performance.now() - startedAt);
+        });
+        return { ...walk, OnceExit: report, DocumentExit: rootless(report) };
+      }
+
+      const report = once(() => summarize(spent));
+      return {
+        OnceExit(root, { postcss }) {
+          const since = performance.now();
+          postcss([{ postcssPlugin: PLUGIN_NAME, ...walk }])
+            .process(root, { from: result.opts.from })
+            .sync();
+          spent += performance.now() - since;
+
+          const top = result.root;
+          if (top.type !== 'document' || root === top.last) {
+            seed();
+            report();
           }
-
-          stats.timeMs = Math.round((performance.now() - startTime) * 100) / 100;
-
-          if (config.debug) {
-            const summary =
-              `[viewport-fallback] ${stats.declarations} declarations, ${stats.atRules} at-rules transformed` +
-              (stats.skipped ? `, ${stats.skipped} skipped (dedup)` : '') +
-              ` (${stats.timeMs}ms)`;
-            result.warn(summary);
-          }
-
-          config.onComplete?.(stats);
         },
+        DocumentExit: rootless(report),
       };
     },
   };
+  return self;
 }
 
-viewportFallback.postcss = true;
+viewportFallback.postcss = true as const;

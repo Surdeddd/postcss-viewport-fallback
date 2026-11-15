@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    "strict": true,
+    "noEmit": true,
+    "types": [],
+    "paths": { "postcss-viewport-fallback": ["../.."] }
+  },
+  "files": ["cjs.cts"]
+}

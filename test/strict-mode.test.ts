@@ -19,13 +19,17 @@ describe('strict mode', () => {
 
   it('should not throw when no viewport units exist', async () => {
     const input = `.a { height: 100vh; }`;
-    const result = await postcss([plugin({ strict: true })]).process(input, { from: undefined });
+    const result = await postcss([plugin({ strict: true })]).process(input, {
+      from: undefined,
+    });
     expect(result.css).toBe(`.a { height: 100vh; }`);
   });
 
   it('should not throw when strict is false', async () => {
     const input = `.a { height: 100dvh; }`;
-    const result = await postcss([plugin({ strict: false })]).process(input, { from: undefined });
+    const result = await postcss([plugin({ strict: false })]).process(input, {
+      from: undefined,
+    });
     expect(result.css).toContain('100vh');
   });
 });
