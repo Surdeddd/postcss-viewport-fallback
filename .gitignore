@@ -1,37 +1,75 @@
+# dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 .pnpm-store/
+.yarn/
+.pnp.*
+
+# lockfiles of other package managers (this repo locks with npm)
+yarn.lock
+pnpm-lock.yaml
+bun.lock
+bun.lockb
+
+# build output
 dist/
 build/
 lib/
-coverage/
+out/
 *.map
 *.tsbuildinfo
-tsconfig.tsbuildinfo
+*.tgz
+
+# tests, coverage, profiling
+coverage/
+.nyc_output/
+.vitest/
+*.test.json
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+
+# logs
 logs/
 *.log
 *.log.*
-.vitest/
-coverage/
-*.test.json
+
+# caches and scratch files
+.cache/
+.parcel-cache/
+.eslintcache
+temp/
+tmp/
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# secrets and machine-local config
+.env
+.env.*
+!.env.example
+.npmrc
+
+# OS and editors
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.iml
 *.swp
 *.swo
-*.iml
-out/
-temp/
-tmp/
-.cache/
-.parcel-cache/
-.eslintcache
-.env
-.env.*.local
-.remember
+*~
+
+# AI agents: state, memory and run artifacts
 .claude
+.remember
+.cursor/
+.codex/
+.gemini/
+.grok/
+.kiro/
+MEMORY_BANK/
 memory-bank/
+graphify-out/
+artifacts/
+.playwright-mcp/
