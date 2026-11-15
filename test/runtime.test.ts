@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { applyViewportVars } from '../src/runtime';
 
 interface FakeVV {
@@ -203,7 +203,117 @@ describe('runtime applyViewportVars', () => {
 
   it('does not throw without a window (SSR guard)', () => {
     expect(() =>
-      applyViewportVars(undefined as unknown as Window & typeof globalThis),
+      applyViewportVars(undefined as unknown as Window & typeof globalThis)
     ).not.toThrow();
+  });
+
+  it('survives getComputedStyle returning null (hidden iframe in old Firefox)', () => {
+    const { win, props } = fakeWindow({ getComputedStyle: () => null });
+    expect(() => applyViewportVars(win)).not.toThrow();
+    expect(props.get('--pvf-dvi')).toBe('4px');
+    expect(props.get('--pvf-dvb')).toBe('7px');
+  });
+
+  it('works without CSS.supports and visualViewport (very old engines)', () => {
+    const { win, props, state, fire } = fakeWindow({ CSS: undefined });
+    const handle = applyViewportVars(win);
+    expect(props.get('--pvf-dvh')).toBe('7px');
+    state.innerHeight = 500;
+    fire('resize');
+    expect(props.get('--pvf-dvh')).toBe('5px');
+    expect(() => handle.destroy()).not.toThrow();
+  });
+
+  it('treats contenteditable hosts as keyboard targets', () => {
+    const { win, props, state, fire } = fakeWindow();
+    applyViewportVars(win);
+    state.activeElement = { tagName: 'DIV', isContentEditable: true };
+    state.innerHeight = 300;
+    fire('resize');
+    expect(props.get('--pvf-dvh')).toBe('7px');
+  });
+
+  it('does not write anything while the window has no size yet', () => {
+    const { win, props, state, fire } = fakeWindow();
+    state.innerWidth = 0;
+    state.innerHeight = 0;
+    applyViewportVars(win);
+    expect(props.size).toBe(0);
+    state.innerWidth = 400;
+    state.innerHeight = 700;
+    fire('resize');
+    expect(props.get('--pvf-dvh')).toBe('7px');
+  });
+
+  it('uses the global window when called without arguments', () => {
+    const { win, props } = fakeWindow();
+    vi.stubGlobal('window', win);
+    try {
+      applyViewportVars();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(props.get('--pvf-dvh')).toBe('7px');
+  });
+
+  it('update() recomputes on demand', () => {
+    const { win, props, state } = fakeWindow();
+    const handle = applyViewportVars(win);
+    state.innerHeight = 640;
+    handle.update();
+    expect(props.get('--pvf-dvh')).toBe('6.4px');
+  });
+});
+
+describe('runtime scheduling', () => {
+  function withFrames() {
+    const frames: Array<() => void> = [];
+    const cancelled: number[] = [];
+    const fake = fakeWindow({
+      requestAnimationFrame: (fn: () => void) => frames.push(fn),
+      cancelAnimationFrame: (id: number) => cancelled.push(id),
+    });
+    return { ...fake, frames, cancelled };
+  }
+
+  it('coalesces a burst of events into one update per frame', () => {
+    const { win, props, state, fire, frames } = withFrames();
+    applyViewportVars(win);
+    state.innerHeight = 600;
+    fire('resize');
+    fire('resize');
+    fire('orientationchange');
+    expect(frames).toHaveLength(1);
+    expect(props.get('--pvf-dvh')).toBe('7px');
+
+    frames[0]();
+    expect(props.get('--pvf-dvh')).toBe('6px');
+
+    state.innerHeight = 500;
+    fire('resize');
+    expect(frames).toHaveLength(2);
+  });
+
+  it('measures again when the page comes back from the back/forward cache', () => {
+    const { win, props, state, fire } = fakeWindow();
+    applyViewportVars(win);
+    state.innerHeight = 650;
+    fire('pageshow');
+    expect(props.get('--pvf-dvh')).toBe('6.5px');
+  });
+
+  it('destroy cancels the frame it was waiting for and removes pageshow', () => {
+    const { win, props, state, fire, frames, cancelled, listenerCount } = withFrames();
+    const handle = applyViewportVars(win);
+    state.innerHeight = 600;
+    fire('resize');
+    handle.destroy();
+    expect(cancelled).toEqual([1]);
+    expect(listenerCount()).toBe(0);
+
+    handle.destroy();
+    expect(cancelled).toEqual([1]);
+    expect(frames).toHaveLength(1);
+    expect(props.get('--pvf-dvh')).toBe('7px');
   });
 });
