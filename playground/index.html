@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>postcss-viewport-fallback playground: dvh, svh and lvh fallbacks, live</title>
+    <meta
+      name="description"
+      content="Paste CSS and see the vh / vw fallbacks that postcss-viewport-fallback writes for dvh, svh, lvh and the other dynamic viewport units: in calc(), next to var(), in custom properties, @media, @container and @keyframes."
+    />
+    <link rel="canonical" href="https://surdeddd.github.io/postcss-viewport-fallback/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="postcss-viewport-fallback playground" />
+    <meta
+      property="og:description"
+      content="Try the PostCSS plugin in the browser: dvh, svh and lvh get a vh fallback that older browsers really apply."
+    />
+    <meta
+      property="og:url"
+      content="https://surdeddd.github.io/postcss-viewport-fallback/"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23f5f4f0'/%3E%3Ccircle cx='8' cy='8' r='4' fill='%23e96a26'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="bar">
+      <h1 class="name">
+        postcss-viewport-fallback
+        <span class="tag" data-t="tag">playground</span>
+      </h1>
+      <nav class="links">
+        <div class="segment" role="group" data-t-label="language" aria-label="Language">
+          <button type="button" data-language="en" aria-pressed="true">EN</button>
+          <button type="button" data-language="ru" aria-pressed="false">RU</button>
+        </div>
+        <button class="button" type="button" id="copy-link" data-t="copyLink">
+          Copy link
+        </button>
+        <a href="https://github.com/Surdeddd/postcss-viewport-fallback#readme">GitHub</a>
+        <a href="https://www.npmjs.com/package/postcss-viewport-fallback">npm</a>
+      </nav>
+    </header>
+
+    <main class="bench">
+      <section class="panel controls" aria-labelledby="options-title">
+        <div class="panel-head">
+          <h2 class="label" id="options-title" data-t="options">Options</h2>
+        </div>
+        <form class="fields" id="settings">
+          <fieldset class="field" aria-describedby="hint-strategy">
+            <legend><code class="option">strategy</code></legend>
+            <p class="hint" id="hint-strategy" data-t="hintStrategy">
+              How the fallback is written
+            </p>
+            <div class="segment">
+              <label>
+                <input type="radio" name="strategy" value="duplicate" checked />
+                <span>duplicate</span>
+              </label>
+              <label>
+                <input type="radio" name="strategy" value="css-var" />
+                <span>css-var</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <label class="field">
+            <span class="field-head">
+              <code class="option">preserve</code>
+              <input type="checkbox" role="switch" name="preserve" checked />
+              <span class="switch" aria-hidden="true"></span>
+            </span>
+            <span class="hint" data-t="hintPreserve">
+              Keep the modern value next to the fallback
+            </span>
+          </label>
+
+          <label class="field">
+            <span class="field-head">
+              <code class="option">includeCustomProps</code>
+              <input type="checkbox" role="switch" name="includeCustomProps" />
+              <span class="switch" aria-hidden="true"></span>
+            </span>
+            <span class="hint" data-t="hintCustomProps">
+              Custom properties get a fallback too
+            </span>
+          </label>
+
+          <label class="field">
+            <span class="field-head">
+              <code class="option">fragmentGuards</code>
+              <input type="checkbox" role="switch" name="fragmentGuards" />
+              <span class="switch" aria-hidden="true"></span>
+            </span>
+            <span class="hint" data-t="hintFragment">
+              The input is the body of a rule (CSS-in-JS)
+            </span>
+          </label>
+
+          <label class="field" data-off>
+            <span class="field-head">
+              <code class="option">seed</code>
+              <input type="checkbox" role="switch" name="seed" checked disabled />
+              <span class="switch" aria-hidden="true"></span>
+            </span>
+            <span class="hint" data-t="hintSeed">
+              Write the --pvf-* seed into the stylesheet
+            </span>
+          </label>
+
+          <fieldset class="field" aria-describedby="hint-existing">
+            <legend><code class="option">existingFallback</code></legend>
+            <p class="hint" id="hint-existing" data-t="hintExisting">
+              What counts as a fallback you wrote yourself
+            </p>
+            <div class="segment">
+              <label>
+                <input type="radio" name="existingFallback" value="exact" checked />
+                <span>exact</span>
+              </label>
+              <label>
+                <input type="radio" name="existingFallback" value="any" />
+                <span>any</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="field" aria-describedby="hint-logical">
+            <legend><code class="option">logicalFallback</code></legend>
+            <p class="hint" id="hint-logical" data-t="hintLogical">
+              What dvi and dvb fall back to
+            </p>
+            <div class="segment">
+              <label>
+                <input type="radio" name="logicalFallback" value="physical" checked />
+                <span>physical</span>
+              </label>
+              <label>
+                <input type="radio" name="logicalFallback" value="logical" />
+                <span>logical</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <label class="field">
+            <span class="field-head"><code class="option">customUnits</code></span>
+            <span class="hint" data-t="hintUnits">More units, as unit: fallback</span>
+            <input
+              class="entry"
+              type="text"
+              name="customUnits"
+              placeholder="cqh: svh"
+              spellcheck="false"
+              autocapitalize="off"
+              autocomplete="off"
+            />
+          </label>
+        </form>
+
+        <div class="panel-head">
+          <h2 class="label" data-t="config">postcss.config.js</h2>
+        </div>
+        <pre class="code snippet" id="config"></pre>
+        <div class="actions">
+          <button class="button" type="button" id="copy-config" data-t="copyConfig">
+            Copy config
+          </button>
+        </div>
+      </section>
+
+      <section class="panel source" aria-labelledby="input-title">
+        <div class="panel-head">
+          <h2 class="label" id="input-title" data-t="input">Input</h2>
+          <label class="pick">
+            <span class="label" data-t="example">Example</span>
+            <select id="example">
+              <option value="">—</option>
+            </select>
+          </label>
+        </div>
+        <textarea
+          class="code"
+          id="source"
+          aria-labelledby="input-title"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          autocorrect="off"
+        ></textarea>
+      </section>
+
+      <section class="panel result" aria-labelledby="output-title">
+        <div class="panel-head">
+          <h2 class="label" id="output-title" data-t="output">Output</h2>
+          <span class="legend">
+            <span class="mark" aria-hidden="true">+</span>
+            <span data-t="legend">written by the plugin</span>
+          </span>
+          <button class="button" type="button" id="copy-output" data-t="copy">
+            Copy
+          </button>
+        </div>
+        <pre class="code" id="result" tabindex="0" aria-labelledby="output-title"></pre>
+        <div class="failure" id="failure" role="alert" hidden>
+          <p class="label" data-t="error">This stylesheet cannot be processed</p>
+          <p class="failure-text" id="failure-text"></p>
+        </div>
+        <div class="notes" id="notes" hidden>
+          <p class="label" data-t="warnings">Notes from the plugin</p>
+          <ul id="note-list"></ul>
+        </div>
+        <dl class="readout">
+          <div>
+            <dt data-t="declarations">declarations</dt>
+            <dd id="stat-declarations">0</dd>
+          </div>
+          <div>
+            <dt data-t="atRules">at-rules</dt>
+            <dd id="stat-at-rules">0</dd>
+          </div>
+          <div>
+            <dt data-t="skipped">already had a fallback</dt>
+            <dd id="stat-skipped">0</dd>
+          </div>
+          <div>
+            <dt data-t="time">time</dt>
+            <dd id="stat-time">0</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+
+    <section class="about">
+      <h2 data-t="aboutTitle">What you are looking at</h2>
+      <p data-t="aboutLead">
+        postcss-viewport-fallback is a PostCSS plugin. It gives dvh, svh, lvh and the
+        other dynamic viewport units a vh / vw fallback that older browsers really apply:
+        in calc(), next to var(), in custom properties, @media, @container and @keyframes.
+        The plugin itself runs on this page, so the output is exactly what your build
+        would get.
+      </p>
+      <h2 data-t="aboutInstall">Add it to a project</h2>
+      <pre class="code snippet">
+npm install --save-dev postcss postcss-viewport-fallback</pre>
+      <ul class="more">
+        <li>
+          <a
+            href="https://github.com/Surdeddd/postcss-viewport-fallback#readme"
+            data-t="aboutDocs"
+            >Documentation</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://github.com/Surdeddd/postcss-viewport-fallback#options"
+            data-t="aboutOptions"
+            >All options</a
+          >
+        </li>
+        <li>
+          <a
+            href="https://www.npmjs.com/package/postcss-viewport-fallback"
+            data-t="aboutNpm"
+            >Package on npm</a
+          >
+        </li>
+      </ul>
+    </section>
+  </body>
+</html>
