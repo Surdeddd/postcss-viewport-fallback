@@ -31,7 +31,7 @@ describe('viewport-fallback / basic', () => {
     expect(result.css).toContain('min-height: 100svh;');
   });
 
-  it('supports dvi/dvb → vi/vb', async () => {
+  it('supports dvi/dvb → vw/vh', async () => {
     const result = await run(`
       .el {
         inline-size: 100dvi;
@@ -39,10 +39,10 @@ describe('viewport-fallback / basic', () => {
       }
     `);
 
-    expect(result.css).toContain('inline-size: 100vi;');
+    expect(result.css).toContain('inline-size: 100vw;');
     expect(result.css).toContain('inline-size: 100dvi;');
 
-    expect(result.css).toContain('block-size: 100vb;');
+    expect(result.css).toContain('block-size: 100vh;');
     expect(result.css).toContain('block-size: 100dvb;');
   });
 

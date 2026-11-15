@@ -1,19 +1,39 @@
 import type { PropertyFilter } from '../plugin/types';
 
-/**
- * Check if a property matches any item in a filter.
- * Strings compare case-insensitively for regular CSS properties and exactly
- * for custom properties (which are case-sensitive per spec). RegExps test the
- * original property name.
- */
-export function matchesFilter(prop: string, filter: PropertyFilter): boolean {
-  const isCustom = prop.startsWith('--');
-  const lowered = isCustom ? prop : prop.toLowerCase();
-  return filter.some((pattern) => {
-    if (typeof pattern === 'string') {
-      if (isCustom || pattern.startsWith('--')) return pattern === prop;
-      return pattern.toLowerCase() === lowered;
-    }
-    return pattern.test(prop);
-  });
+export type PropertyMatcher = (prop: string) => boolean;
+
+function stateless(pattern: RegExp): RegExp {
+  return /[gy]/.test(pattern.flags)
+    ? new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ''))
+    : pattern;
+}
+
+/** Strings match case-insensitively (custom properties exactly); RegExps test as written. */
+export function createPropertyMatcher(patterns: PropertyFilter): PropertyMatcher {
+  const customNames = new Set<string>();
+  const regularNames = new Set<string>();
+  const regexes: RegExp[] = [];
+
+  for (const pattern of patterns) {
+    if (typeof pattern !== 'string') regexes.push(stateless(pattern));
+    else if (pattern.startsWith('--')) customNames.add(pattern);
+    else regularNames.add(pattern.toLowerCase());
+  }
+
+  return (prop) =>
+    (prop.startsWith('--')
+      ? customNames.has(prop)
+      : regularNames.has(prop.toLowerCase())) ||
+    regexes.some((regex) => regex.test(prop));
+}
+
+/** Combined allowlist/denylist check; undefined filters impose no restriction. */
+export function createPropertyGate(
+  only: PropertyFilter | undefined,
+  exclude: PropertyFilter | undefined
+): PropertyMatcher {
+  const included = only && createPropertyMatcher(only);
+  const excluded = exclude && createPropertyMatcher(exclude);
+  if (!included && !excluded) return () => true;
+  return (prop) => !(excluded && excluded(prop)) && (!included || included(prop));
 }

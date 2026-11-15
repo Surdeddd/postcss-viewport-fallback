@@ -22,15 +22,18 @@ describe('extended edge cases', () => {
 
   it('strict mode should not throw for @media without viewport units', async () => {
     const input = `@media (min-width: 768px) { .a { color: red; } }`;
-    const result = await postcss([plugin({ strict: true })]).process(input, { from: undefined });
+    const result = await postcss([plugin({ strict: true })]).process(input, {
+      from: undefined,
+    });
     expect(result.css).toBe(input);
   });
 
-  it('replace mode + dedup should not duplicate', async () => {
+  it('preserve: false + dedup should not duplicate', async () => {
     const input = `.a { height: 100vh; height: 100dvh; }`;
-    const result = await postcss([plugin({ replace: true })]).process(input, { from: undefined });
-    // dedup detects 100vh exists, skips fallback; replace removes 100dvh
-    // But since dedup returns early before cloneBefore, the original stays
+    const result = await postcss([plugin({ preserve: false })]).process(input, {
+      from: undefined,
+    });
+    expect(result.css).toBe(`.a { height: 100vh; }`);
     expect(result.css).toContain('100vh');
   });
 

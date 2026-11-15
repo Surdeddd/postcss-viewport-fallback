@@ -28,22 +28,9 @@ describe('preserve option', () => {
     expect(result.css).not.toContain('dvw');
   });
 
-  it('replace: true still works as deprecated alias', async () => {
-    const input = `.a { height: 100dvh; }`;
-    const result = await postcss([plugin({ replace: true })]).process(input, {
-      from: undefined,
-    });
-    expect(result.css).toContain('height: 100vh');
-    expect(result.css).not.toContain('100dvh');
-  });
-
-  it('preserve takes precedence over replace', async () => {
-    const input = `.a { height: 100dvh; }`;
-    const result = await postcss([plugin({ preserve: true, replace: true })]).process(input, {
-      from: undefined,
-    });
-    // preserve: true wins
-    expect(result.css).toContain('100dvh');
-    expect(result.css).toContain('100vh');
+  it('points users of the removed replace option to preserve: false', () => {
+    expect(() => plugin({ replace: true } as never)).toThrow(
+      'option "replace" was removed in 2.0: use preserve: false'
+    );
   });
 });

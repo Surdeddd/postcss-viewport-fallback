@@ -93,7 +93,7 @@ describe('Viewport Fallback – EXTREME edge cases', () => {
     expect(out).toContain('1vh');
   });
 
-  it('transforms inside @supports conditions', async () => {
+  it('does not rewrite @supports conditions or the block they guard', async () => {
     const css = `
       @supports (height: 100dvh) {
         .box { height: 100dvh; }
@@ -101,9 +101,7 @@ describe('Viewport Fallback – EXTREME edge cases', () => {
     `;
     const out = await run(css);
 
-    // fallback @supports added
-    expect(out).toContain('@supports (height: 100vh)');
-    expect(out).toContain('(height: 100dvh)');
+    expect(out).toBe(css.trim());
   });
 
   it('transforms inside @container queries', async () => {

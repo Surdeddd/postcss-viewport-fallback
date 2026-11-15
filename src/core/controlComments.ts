@@ -1,52 +1,83 @@
-import type { ChildNode, Container, Document, Root } from 'postcss';
-import { DISABLE_COMMENT, RANGE_DISABLE, RANGE_ENABLE } from './constants';
+import type { ChildNode, Comment, Container, Root } from 'postcss';
+import { PLUGIN_NAME } from './constants';
 
-const rangeCommentCache = new WeakMap<Root | Document, boolean>();
+type Directive = 'off' | 'disable' | 'enable';
+type RangeState = boolean | null;
 
-function hasRangeComments(node: ChildNode): boolean {
-  const root = node.root();
-  let cached = rangeCommentCache.get(root);
-  if (cached === undefined) {
-    cached = false;
-    root.walkComments((comment) => {
-      const text = comment.text.trim();
-      if (text === RANGE_DISABLE || text === RANGE_ENABLE) {
-        cached = true;
-        return false;
-      }
-    });
-    rangeCommentCache.set(root, cached);
-  }
-  return cached;
+const DIRECTIVE = /^postcss-viewport-fallback\s*:\s*(off|disable|enable)$/i;
+
+function directiveOf(node: ChildNode | undefined): Directive | undefined {
+  if (!node || node.type !== 'comment') return undefined;
+  const match = DIRECTIVE.exec(node.text.trim());
+  return match ? (match[1].toLowerCase() as Directive) : undefined;
 }
 
-function unproxy(node: ChildNode): ChildNode {
-  return (node as ChildNode & { proxyOf?: ChildNode }).proxyOf ?? node;
+/** The text of the comment that switches off the node after it. */
+export const SWITCH_OFF = `${PLUGIN_NAME}: off`;
+
+export interface CommentControl {
+  /** Register a comment; a range directive indexes its container anew. */
+  observe(comment: Comment): void;
+  /** True when a point `off` comment or an enclosing `disable` range covers the node. */
+  isDisabled(node: ChildNode): boolean;
 }
 
-export function isDisabledByComment(node: ChildNode): boolean {
-  const prev = node.prev();
-  if (prev?.type === 'comment' && prev.text.trim() === DISABLE_COMMENT) return true;
+/** Per-run view of control comments, built from the comments PostCSS visits. */
+export function createCommentControl(): CommentControl {
+  const rootsWithRanges = new WeakSet<Root>();
+  const rangeHosts = new WeakSet<Container>();
+  const states = new WeakMap<ChildNode, RangeState>();
 
-  if (!hasRangeComments(node)) return false;
-
-  let current: ChildNode | undefined = unproxy(node);
-  while (current) {
-    const parent: Container | Document | undefined = current.parent;
-    if (!parent || !parent.nodes) break;
-    const nodes = parent.nodes as ChildNode[];
-    for (let i = nodes.indexOf(current) - 1; i >= 0; i--) {
-      const sibling = nodes[i];
-      if (sibling.type === 'comment') {
-        const text = sibling.text.trim();
-        if (text === RANGE_DISABLE) return true;
-        if (text === RANGE_ENABLE) return false;
-      }
+  function indexHost(host: Container): void {
+    let state: RangeState = null;
+    for (const child of host.nodes as ChildNode[]) {
+      const directive = directiveOf(child);
+      if (directive === 'disable') state = true;
+      else if (directive === 'enable') state = false;
+      else states.set(child, state);
     }
-    current =
-      parent.type === 'root' || parent.type === 'document'
-        ? undefined
-        : (parent as ChildNode);
+    rangeHosts.add(host);
   }
-  return false;
+
+  /** A node the index does not know was written later: it has the state its neighbour leaves it. */
+  function stateWithin(node: ChildNode, host: Container): RangeState {
+    const known = states.get(node);
+    if (known !== undefined) return known;
+
+    const before = node.prev();
+    const directive = directiveOf(before);
+    const state =
+      directive === 'disable' || directive === 'enable'
+        ? directive === 'disable'
+        : before
+          ? stateWithin(before, host)
+          : null;
+    states.set(node, state);
+    return state;
+  }
+
+  return {
+    observe(comment) {
+      const directive = directiveOf(comment);
+      if (directive === 'disable' || directive === 'enable') {
+        indexHost(comment.parent as Container);
+        rootsWithRanges.add(comment.root());
+      }
+    },
+
+    isDisabled(node) {
+      if (directiveOf(node.prev()) === 'off') return true;
+      if (!rootsWithRanges.has(node.root())) return false;
+
+      for (let current = node; ;) {
+        const parent = current.parent as Container;
+        if (rangeHosts.has(parent)) {
+          const state = stateWithin(current, parent);
+          if (state !== null) return state;
+        }
+        if (parent.type === 'root') return false;
+        current = parent as ChildNode;
+      }
+    },
+  };
 }

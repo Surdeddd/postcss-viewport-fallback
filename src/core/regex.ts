@@ -1,18 +1,23 @@
-import { UNIT_MAP } from './units';
+const NUMBER = String.raw`[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?`;
+const NOT_AFTER_NAME = String.raw`(?<![\w.#\\\-\u0080-\uFFFF])`;
+const NOT_BEFORE_NAME = String.raw`(?![\w\\\-\u0080-\uFFFF])`;
+const NEVER = '(?!)';
 
-const NUMBER_PATTERN = '[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?';
-
-export function createUnitRegex(units: string[]): RegExp {
-  const sorted = [...units].sort((a, b) => b.length - a.length);
-  const alternation = sorted.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  return new RegExp(`^(${NUMBER_PATTERN})(${alternation})$`, 'i');
+function alternation(units: Iterable<string>): string {
+  return [...units].join('|');
 }
 
-export function createQuickTest(units: string[]): RegExp {
-  const sorted = [...units].sort((a, b) => b.length - a.length);
-  const alternation = sorted.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  return new RegExp(`(${alternation})`, 'i');
+/** Global matcher for `<number><unit>` dimension tokens; groups: number text, unit. */
+export function createDimensionRegex(units: Iterable<string>): RegExp {
+  const names = alternation(units);
+  return new RegExp(
+    names ? `${NOT_AFTER_NAME}(${NUMBER})(${names})${NOT_BEFORE_NAME}` : NEVER,
+    'gi'
+  );
 }
 
-export const VIEWPORT_UNIT_REGEX = createUnitRegex(Object.keys(UNIT_MAP));
-export const QUICK_UNIT_TEST = createQuickTest(Object.keys(UNIT_MAP));
+/** Cheap stateless substring pre-filter: a digit immediately followed by a known unit. */
+export function createQuickTest(units: Iterable<string>): RegExp {
+  const names = alternation(units);
+  return new RegExp(names ? String.raw`\d(?:${names})` : NEVER, 'i');
+}

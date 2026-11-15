@@ -20,19 +20,18 @@ describe('postcss-html pipeline (Vue SFC / HTML <style> blocks)', () => {
     expect(result.content).toContain('calc(100vw - 40px)');
   });
 
-  it('css-var strategy injects one page-global seed covering all blocks', async () => {
+  it('css-var strategy seeds every style block with the units that block uses', async () => {
     const result = await postcss([plugin({ strategy: 'css-var' })]).process(html, {
       from: 'page.html',
       syntax: postcssHtml(),
     });
-    expect(result.content).toContain('calc(var(--pvf-dvh, 1vh) * 100)');
-    expect(result.content).toContain('calc(var(--pvf-dvw, 1vw) * 100)');
-    expect(
-      (result.content.match(/:root \{ --pvf-dvh: 1vh; --pvf-dvw: 1vw \}/g) ?? []).length,
-    ).toBe(1);
-    expect((result.content.match(/postcss-viewport-fallback: disable/g) ?? []).length).toBe(1);
-    expect(result.content).toContain('@supports (height: 1dvh)');
-    expect(result.content).toContain('@supports (height: 1dvw)');
+    expect(result.content).toContain(`<style>:root, :host { --pvf-dvh: 1vh }
+@supports (height: 1dvh) { :root, :host { --pvf-dvh: 1dvh } }
+.hero { height: calc(var(--pvf-dvh, 1vh) * 100); height: 100dvh; }</style>`);
+    expect(result.content).toContain(`<style>:root, :host { --pvf-dvw: 1vw }
+@supports (height: 1dvh) { :root, :host { --pvf-dvw: 1dvw } }
+.panel {`);
+    expect(result.content).not.toContain('postcss-viewport-fallback:');
   });
 });
 
@@ -42,7 +41,7 @@ describe('utility-generator pipeline (Tailwind-like: units appear mid-build)', (
     Once(root) {
       root.walkAtRules('utilities', (atRule) => {
         atRule.replaceWith(
-          `.h-dvh { height: 100dvh }\n.min-h-dvh { min-height: 100dvh }\n.w-dvw { width: 100dvw }`,
+          `.h-dvh { height: 100dvh }\n.min-h-dvh { min-height: 100dvh }\n.w-dvw { width: 100dvw }`
         );
       });
     },
@@ -60,7 +59,7 @@ describe('utility-generator pipeline (Tailwind-like: units appear mid-build)', (
   it('documents why fastSkip must stay off for generator pipelines', async () => {
     const result = await postcss([generator, plugin({ fastSkip: true })]).process(
       `@utilities;`,
-      { from: undefined },
+      { from: undefined }
     );
     expect(result.css).not.toContain('height: 100vh');
   });

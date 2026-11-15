@@ -62,8 +62,8 @@ describe('strict mode scoping', () => {
     await expect(
       postcss([plugin({ strict: true, includeCustomProps: true })]).process(
         `.a { --h: 100dvh; }`,
-        { from: undefined },
-      ),
+        { from: undefined }
+      )
     ).rejects.toThrow('Dynamic viewport unit found');
   });
 
@@ -71,8 +71,8 @@ describe('strict mode scoping', () => {
     await expect(
       postcss([plugin({ strict: true })]).process(
         `@media (min-height: 100dvh) { .a { color: red; } }`,
-        { from: undefined },
-      ),
+        { from: undefined }
+      )
     ).rejects.toThrow('Dynamic viewport unit found: @media');
   });
 });
@@ -80,12 +80,12 @@ describe('strict mode scoping', () => {
 describe('full viewport unit set', () => {
   it('covers small/large width and inline/block variants', async () => {
     const out = await run(
-      `.a { width: 100svw; height: 50lvw; inline-size: 10svi; block-size: 20lvb; }`,
+      `.a { width: 100svw; height: 50lvw; inline-size: 10svi; block-size: 20lvb; }`
     );
     expect(out).toContain('width: 100vw');
     expect(out).toContain('height: 50vw');
-    expect(out).toContain('inline-size: 10vi');
-    expect(out).toContain('block-size: 20vb');
+    expect(out).toContain('inline-size: 10vw');
+    expect(out).toContain('block-size: 20vh');
   });
 
   it('covers min/max variants', async () => {
@@ -173,5 +173,19 @@ describe('per-run stats isolation', () => {
 
     const counts = collected.map((s) => s.declarations).sort();
     expect(counts).toEqual([1, 2]);
+  });
+});
+
+describe('a stylesheet that PostCSS cannot parse', () => {
+  it.each([
+    ['without a file name', undefined],
+    ['with a file name', 'broken.css'],
+  ])('is reported with the syntax error itself, %s', async (_, from) => {
+    const attempt = async (): Promise<unknown> =>
+      postcss([plugin()]).process(`.a { height: 100dvh`, { from });
+    await expect(attempt()).rejects.toMatchObject({
+      name: 'CssSyntaxError',
+      reason: 'Unclosed block',
+    });
   });
 });

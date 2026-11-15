@@ -3,9 +3,12 @@ import postcss from 'postcss';
 import plugin from '../src';
 
 async function run(input: string, opts = {}) {
-  const result = await postcss([plugin({ strategy: 'css-var', ...opts })]).process(input, {
-    from: undefined,
-  });
+  const result = await postcss([plugin({ strategy: 'css-var', ...opts })]).process(
+    input,
+    {
+      from: undefined,
+    }
+  );
   return result.css;
 }
 
@@ -28,9 +31,11 @@ describe('strategy: css-var', () => {
 
   it('injects a :root seed with only the used units', async () => {
     const out = await run(`.a { height: 100dvh; width: 50svw; }`);
-    expect(out).toContain(':root { --pvf-dvh: 1vh; --pvf-svw: 1vw }');
-    expect(out).toContain('@supports (height: 1dvh) { :root { --pvf-dvh: 1dvh } }');
-    expect(out).toContain('@supports (height: 1svw) { :root { --pvf-svw: 1svw } }');
+    expect(out).toContain(':root, :host { --pvf-dvh: 1vh; --pvf-svw: 1vw }');
+    expect(out).toContain(
+      '@supports (height: 1dvh) { :root, :host { --pvf-dvh: 1dvh; --pvf-svw: 1svw } }'
+    );
+    expect(out.match(/@supports/g)).toHaveLength(1);
     expect(out).not.toContain('--pvf-lvh');
   });
 
@@ -54,7 +59,7 @@ describe('strategy: css-var', () => {
   it('is idempotent across runs', async () => {
     const first = await postcss([plugin({ strategy: 'css-var' })]).process(
       `.a { height: 100dvh; }`,
-      { from: undefined },
+      { from: undefined }
     );
     const second = await postcss([plugin({ strategy: 'css-var' })]).process(first.css, {
       from: undefined,
@@ -88,7 +93,9 @@ describe('strategy: css-var', () => {
   it('works with customUnits', async () => {
     const out = await run(`.a { height: 100cqh; }`, { customUnits: { cqh: 'vh' } });
     expect(out).toContain('calc(var(--pvf-cqh, 1vh) * 100)');
-    expect(out).toContain('@supports (height: 1cqh) { :root { --pvf-cqh: 1cqh } }');
+    expect(out).toContain(
+      '@supports (height: 1cqh) { :root, :host { --pvf-cqh: 1cqh } }'
+    );
   });
 
   describe('customUnits chains resolve transitively', () => {
@@ -96,9 +103,9 @@ describe('strategy: css-var', () => {
       const out = await run(`.a { height: 100cqh; }`, { customUnits: { cqh: 'svh' } });
       expect(out).toContain('height: calc(var(--pvf-cqh, 1vh) * 100)');
       expect(out).not.toContain('1svh) * 100');
-      expect(out).toContain(':root { --pvf-cqh: 1vh }');
-      expect(out).toContain('@supports (height: 1svh) { :root { --pvf-cqh: 1svh } }');
-      expect(out).toContain('@supports (height: 1cqh) { :root { --pvf-cqh: 1cqh } }');
+      expect(out).toContain(':root, :host { --pvf-cqh: 1vh }');
+      expect(out).toContain(`@supports (height: 1dvh) { :root, :host { --pvf-cqh: 1svh } }
+@supports (height: 1cqh) { :root, :host { --pvf-cqh: 1cqh } }`);
     });
 
     it('2-step chain produces exactly one fallback clone, no nested calc garbage', async () => {
@@ -114,10 +121,11 @@ describe('strategy: css-var', () => {
         customUnits: { cqmax: 'cqh', cqh: 'svh' },
       });
       expect(out).toContain('height: calc(var(--pvf-cqmax, 1vh) * 50)');
-      expect(out).toContain(':root { --pvf-cqmax: 1vh }');
-      expect(out).toContain('@supports (height: 1svh) { :root { --pvf-cqmax: 1svh } }');
-      expect(out).toContain('@supports (height: 1cqh) { :root { --pvf-cqmax: 1cqh } }');
-      expect(out).toContain('@supports (height: 1cqmax) { :root { --pvf-cqmax: 1cqmax } }');
+      expect(out).toContain(':root, :host { --pvf-cqmax: 1vh }');
+      expect(out)
+        .toContain(`@supports (height: 1dvh) { :root, :host { --pvf-cqmax: 1svh } }
+@supports (height: 1cqh) { :root, :host { --pvf-cqmax: 1cqh } }
+@supports (height: 1cqmax) { :root, :host { --pvf-cqmax: 1cqmax } }`);
     });
 
     it('chain + preserve: false keeps only the calc version', async () => {
@@ -137,7 +145,9 @@ describe('strategy: css-var', () => {
       const first = await postcss([plugin(opts)]).process(`.a { height: 100cqh; }`, {
         from: undefined,
       });
-      const second = await postcss([plugin(opts)]).process(first.css, { from: undefined });
+      const second = await postcss([plugin(opts)]).process(first.css, {
+        from: undefined,
+      });
       expect(second.css).toBe(first.css);
     });
   });

@@ -1,13 +1,13 @@
 {
   "name": "postcss-viewport-fallback",
   "version": "1.6.1",
-  "description": "PostCSS plugin that adds classic fallbacks for all dynamic/small/large viewport units (dvh, svh, lvh, dvw, dvmin, ...).",
+  "description": "PostCSS plugin that gives dvh, svh, lvh and every other dynamic viewport unit a vh/vw fallback that really applies in older browsers: in calc(), var(), custom properties, @media and Tailwind output.",
   "author": "Maksim Kravtsov",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
       "import": {
@@ -28,12 +28,16 @@
         "types": "./dist/runtime.d.cts",
         "default": "./dist/runtime.cjs"
       }
-    }
+    },
+    "./seed.css": "./dist/seed.css",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "typesVersions": {
     "*": {
       "runtime": [
@@ -45,18 +49,27 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/cjs-types.mjs && node scripts/seed-css.mjs",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p playground",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check:package": "publint && attw --pack .",
-    "bench": "npm run build && node scripts/bench.mjs"
+    "format:check": "prettier --check .",
+    "check:package": "publint && attw --pack . --exclude-entrypoints seed.css && node scripts/smoke.mjs && tsc -p test/types && tsc -p test/types/tsconfig.node10.json",
+    "bench": "npm run build && node scripts/bench.mjs",
+    "properties": "node scripts/properties.mjs",
+    "playground": "npm run build && node scripts/playground.mjs"
   },
   "peerDependencies": {
+    "caniuse-api": "^3.0.0 || ^4.0.0",
     "postcss": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "caniuse-api": {
+      "optional": true
+    }
   },
   "dependencies": {
     "postcss-value-parser": "^4.2.0"
@@ -64,16 +77,22 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
     "@eslint/js": "^10.0.1",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/git": "^11.0.1",
     "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^5.0.5",
+    "@webref/css": "^8.7.9",
+    "acorn": "^8.19.0",
     "caniuse-api": "^4.0.0",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
     "postcss": "^8.5.31",
     "postcss-html": "^2.0.0",
+    "postcss-logical": "^9.0.2",
+    "postcss-nesting": "^14.0.3",
     "prettier": "^3.9.10",
     "publint": "^0.3.25",
     "semantic-release": "^25.0.5",
@@ -96,7 +115,12 @@
   "keywords": [
     "postcss",
     "postcss-plugin",
+    "postcss8",
+    "css",
     "viewport",
+    "viewport-units",
+    "dynamic-viewport-units",
+    "viewport-unit-fallback",
     "dvh",
     "dvw",
     "svh",
@@ -105,13 +129,18 @@
     "lvw",
     "dvmin",
     "dvmax",
-    "dynamic-viewport-units",
-    "viewport-units",
+    "100dvh",
+    "100vh",
+    "dvh-fallback",
     "fallback",
     "polyfill",
-    "100vh",
+    "progressive-enhancement",
+    "legacy-browsers",
     "mobile-viewport",
-    "css",
+    "ios",
+    "safari",
+    "browserslist",
+    "custom-properties",
     "tailwind"
   ]
 }

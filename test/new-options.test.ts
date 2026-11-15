@@ -12,7 +12,10 @@ describe('fastSkip', () => {
   it('skips files without viewport units and still fires onComplete', async () => {
     let stats: TransformStats | undefined;
     const input = `.a { height: 100vh; color: red; }`;
-    const out = await run(input, { fastSkip: true, onComplete: (s: TransformStats) => (stats = s) });
+    const out = await run(input, {
+      fastSkip: true,
+      onComplete: (s: TransformStats) => (stats = s),
+    });
     expect(out).toBe(input);
     expect(stats).toEqual({ declarations: 0, atRules: 0, skipped: 0, timeMs: 0 });
   });
