@@ -13,7 +13,11 @@ updates:
       # and took every grouped dev-dependency PR down with it. Hold the major
       # until typescript-eslint ships TS 7 support, then drop this entry.
       - dependency-name: typescript
-        update-types: ["version-update:semver-major"]
+        update-types: ['version-update:semver-major']
+      # src/core/properties.data.ts is generated from this package and a test
+      # compares the two, so a bump needs `npm run properties` and a look at
+      # what changed in the table. It is updated by hand, with that step.
+      - dependency-name: '@webref/css'
   - package-ecosystem: github-actions
     directory: /
     schedule:

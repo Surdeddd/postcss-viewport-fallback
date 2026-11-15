@@ -1,0 +1,20 @@
+name: Feature request
+description: Something the plugin should do and does not
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: The CSS you write today and what goes wrong with it, or what you have to do by hand.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: Input and the output you would like to get.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
