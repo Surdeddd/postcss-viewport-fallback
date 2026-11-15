@@ -32,6 +32,14 @@ Once lists of container conditions are supported widely, `@container` can get th
 
 The runtime covers the built-in units. It could take the `customUnits` map and keep those variables live too.
 
+### `@keyframes` and `@property` per combination of probes
+
+Such a rule is repeated as a whole, so values that need different probes, two unrelated `customUnits` for instance, are upgraded together: a browser that knows only one of the units keeps the fallback for both. A copy for every combination of probes would upgrade each value on its own, at the cost of up to 2ⁿ − 1 copies. Worth it once someone maps several independent units.
+
+### A seed that reaches every style attribute
+
+With `css-var`, the seed for `style=""` attributes goes into the first `<style>` block of the document. When that block does not apply to the element (a `media` attribute, a shadow root), the attribute keeps the fallback even in browsers that know the unit. Picking a block that applies, or warning when none can be found, would close the gap.
+
 ### Discovery
 
 A listing on [postcss.org](https://postcss.org/docs/postcss-plugins) and standalone recipe pages for the common frameworks.
