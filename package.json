@@ -1,6 +1,6 @@
 {
   "name": "postcss-viewport-fallback",
-  "version": "1.6.1",
+  "version": "2.0.0",
   "description": "PostCSS plugin that gives dvh, svh, lvh and every other dynamic viewport unit a vh/vw fallback that really applies in older browsers: in calc(), var(), custom properties, @media and Tailwind output.",
   "author": "Maksim Kravtsov",
   "license": "MIT",

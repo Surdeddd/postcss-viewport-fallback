@@ -1,3 +1,41 @@
+# [2.0.0](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.6.1...v2.0.0) (2026-11-15)
+
+
+### Features
+
+* a playground that runs the plugin in the browser ([54ab21c](https://github.com/Surdeddd/postcss-viewport-fallback/commit/54ab21c9beaa8a64f2dde03af54d1394f352172a))
+* fallbacks that apply for var() values, custom properties and at-rules ([7c44f3e](https://github.com/Surdeddd/postcss-viewport-fallback/commit/7c44f3edb034344a1e232b2a7b25a1503e315fb4))
+* know which CSS properties can meet ([a012159](https://github.com/Surdeddd/postcss-viewport-fallback/commit/a012159dcacfb548e29005e87eaf90a813793017))
+* write the runtime in ES5 syntax and update once per frame ([1d80b62](https://github.com/Surdeddd/postcss-viewport-fallback/commit/1d80b6219c7272d865c32d05ce389f41d8cc3d3a))
+
+
+### BREAKING CHANGES
+
+* @supports feature queries are no longer rewritten, and
+declarations already guarded by a matching @supports get no twin.
+* values with var() or env(), custom properties
+(includeCustomProps) and the initial-value of @property get their fallback
+through an @supports block instead of a twin declaration.
+* @media gets a longer query list instead of a twin block;
+@container keeps the twin rule.
+* logical units (dvi, dvb and their sv/lv variants) fall back to
+vw and vh. Set logicalFallback: "logical" for the previous vi/vb mapping.
+* an existing fallback is recognised only where it holds the
+same place in the cascade.
+* the css-var seed targets ":root, :host", upgrades all
+built-in units in one @supports block, sits after @import/@charset, is not
+wrapped in control comments and is written into every <style> block that needs
+it.
+* the replace option is removed (use preserve: false); unknown
+option names and invalid values throw when the plugin is created, and so does
+a customUnits chain that leaves the built-in units and returns to them.
+* next to plugins that visit nodes the plugin works after
+them: such plugins no longer see the fallbacks, and a minifier has to be
+listed after the plugin.
+* require('postcss-viewport-fallback') returns the plugin
+function; onTransform's selector is the nearest enclosing rule; values with CSS
+escapes and @container style() queries are left untouched.
+
 ## [1.6.1](https://github.com/Surdeddd/postcss-viewport-fallback/compare/v1.6.0...v1.6.1) (2026-07-11)
 
 
